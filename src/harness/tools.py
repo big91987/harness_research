@@ -47,10 +47,32 @@ class Tool:
         decision = policy.check(self.name, self.required_permission)
         if not decision.allowed:
             return ToolResult(decision.reason, is_error=True)
+        validation_error = self._validate_arguments(arguments)
+        if validation_error:
+            return ToolResult(validation_error, is_error=True)
         try:
             return self._limit(self.handler(arguments, workspace))
         except Exception as exc:  # noqa: BLE001 - tool errors should return to model.
             return ToolResult(str(exc), is_error=True)
+
+    def _validate_arguments(self, arguments: Any) -> str:
+        if not isinstance(arguments, dict):
+            return "tool arguments must be an object"
+        required = self.parameters.get("required") or []
+        for name in required:
+            if name not in arguments:
+                return f"missing required argument: {name}"
+        properties = self.parameters.get("properties") or {}
+        for name, value in arguments.items():
+            schema = properties.get(name)
+            if not schema:
+                continue
+            expected_type = schema.get("type")
+            if expected_type == "string" and not isinstance(value, str):
+                return f"argument {name} must be string"
+            if expected_type == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
+                return f"argument {name} must be integer"
+        return ""
 
     def _limit(self, result: ToolResult) -> ToolResult:
         if self.max_output_chars <= 0 or len(result.output) <= self.max_output_chars:

@@ -95,6 +95,40 @@ def test_bash_timeout_is_clamped(tmp_path: Path) -> None:
     assert "timed out" in result.output
 
 
+def test_tool_reports_missing_required_argument(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("read_file").run({}, workspace, Policy(PermissionMode.READ_ONLY))
+
+    assert result.is_error
+    assert "missing required argument: path" in result.output
+
+
+def test_tool_reports_argument_type_errors(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("bash").run(
+        {"command": "printf ok", "timeout_seconds": "slow"},
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert result.is_error
+    assert "argument timeout_seconds must be integer" in result.output
+
+
+def test_tool_reports_non_object_arguments(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("list_files").run("not a dict", workspace, Policy(PermissionMode.READ_ONLY))
+
+    assert result.is_error
+    assert "tool arguments must be an object" in result.output
+
+
 def test_tool_registry_describes_tools() -> None:
     registry = default_tool_registry()
 

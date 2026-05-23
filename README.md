@@ -133,6 +133,20 @@ PYTHONPATH=src python3 -m harness.cli run "create file" \
   --mock-responses /path/to/responses.json
 ```
 
+Checkpoint a workspace before a risky run and restore it automatically when the
+turn does not reach a final answer:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli run "make risky edits" \
+  --workspace /tmp/harness-ws \
+  --session-dir /tmp/harness-sessions \
+  --trace /tmp/harness-trace.jsonl \
+  --permission workspace-write \
+  --checkpoint-before \
+  --checkpoint-dir /tmp/harness-checkpoints \
+  --restore-checkpoint-on-failure
+```
+
 Export or import a session bundle:
 
 ```bash
@@ -300,6 +314,11 @@ PYTHONPATH=src python3 -m harness.cli checkpoint \
 
 Use `--clean` when restore should remove files that were created after the
 checkpoint.
+
+The `run` command can also create the checkpoint before a model turn with
+`--checkpoint-before`; combine it with `--restore-checkpoint-on-failure` to
+roll the workspace back when the turn stops with `model_error`,
+`budget_exceeded`, or `max_iterations`.
 
 Review workspace changes before restoring a checkpoint:
 

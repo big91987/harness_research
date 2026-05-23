@@ -65,6 +65,10 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-total-tokens", type=int)
     run.add_argument("--max-cost-usd", type=float)
     run.add_argument("--sandbox-runner")
+    run.add_argument("--checkpoint-before", action="store_true")
+    run.add_argument("--checkpoint-dir", default=".harness/checkpoints")
+    run.add_argument("--checkpoint-label", default="")
+    run.add_argument("--restore-checkpoint-on-failure", action="store_true")
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
 
@@ -429,6 +433,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "run":
         config = _merged_config(args)
+        checkpoint = None
+        if args.checkpoint_before or args.restore_checkpoint_on_failure:
+            label = args.checkpoint_label or f"before-run-{args.prompt[:40]}"
+            checkpoint = WorkspaceCheckpoint.create(config.workspace, args.checkpoint_dir, label=label)
+            print(f"checkpoint: {checkpoint.id}")
+            print(f"checkpoint_manifest: {checkpoint.manifest_path}")
         kernel, session = build_kernel(args)
         task_store = TaskStore(config.task_dir) if args.task_id else None
         if args.task_id:
@@ -450,6 +460,13 @@ def main(argv: list[str] | None = None) -> int:
                     "last_iterations": str(result.iterations),
                 },
             )
+        if (
+            checkpoint is not None
+            and args.restore_checkpoint_on_failure
+            and result.stop_reason != "final_answer"
+        ):
+            WorkspaceCheckpoint.restore(checkpoint.manifest_path, config.workspace, clean=True)
+            print(f"restored_checkpoint: {checkpoint.id}")
         print(result.final_text)
         print(f"\nsession: {result.session_id}")
         print(f"stop_reason: {result.stop_reason}")

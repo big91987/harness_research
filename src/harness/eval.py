@@ -58,6 +58,11 @@ class EvalSuiteStore:
         self._write(data)
         return case
 
+    def add_case_from_trace(self, name: str, *, trace: str | Path) -> dict:
+        trace_path = Path(trace).expanduser().resolve()
+        expect = derive_expectation_from_trace(trace_path)
+        return self.add_case(name, trace=str(trace), expect=expect)
+
     def list_cases(self) -> list[dict]:
         return list(self._read().get("cases", []))
 
@@ -136,6 +141,36 @@ def evaluate_trace(path: str | Path, expectation: EvalExpectation) -> EvalReport
         passed=bool(checks) and all(value == "passed" for value in checks.values()),
         checks=checks,
     )
+
+
+def derive_expectation_from_trace(path: str | Path) -> dict:
+    events = TraceRecorder(path).read_events()
+    turn_ends = [event for event in events if event.get("type") == "turn_end"]
+    last_turn = turn_ends[-1] if turn_ends else {}
+    tool_calls = [event for event in events if event.get("type") == "tool_call"]
+    total_tokens = sum(
+        canonical_usage(dict(event.get("usage") or {}))["total_tokens"]
+        for event in events
+        if event.get("type") == "model_response"
+    )
+    total_cost = sum(
+        float(event.get("cost_usd") or 0.0)
+        for event in events
+        if event.get("type") == "model_response"
+    )
+    expect: dict = {
+        "stop_reason": last_turn.get("stop_reason"),
+        "max_tool_errors": sum(1 for event in tool_calls if bool(event.get("is_error"))),
+        "required_tools": sorted({str(event.get("name")) for event in tool_calls if event.get("name")}),
+    }
+    final_text = str(last_turn.get("final_text") or "")
+    if final_text:
+        expect["final_text_contains"] = final_text
+    if total_tokens:
+        expect["max_total_tokens"] = total_tokens
+    if total_cost:
+        expect["max_cost_usd"] = round(total_cost * 1.1, 12)
+    return expect
 
 
 def run_golden_suite(path: str | Path) -> GoldenSuiteReport:

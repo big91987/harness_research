@@ -275,9 +275,16 @@ PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json \
   --expect-stop-reason final_answer \
   --require-tool write_file
 
+PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json \
+  --add-from-trace write-file-smoke \
+  --trace-path /tmp/harness-trace.jsonl
+
 PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json --list
 PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json --run
 ```
+
+`--add-from-trace` derives a regression case from the observed trace: stop
+reason, called tools, tool error count, final text, and token/cost ceilings.
 
 Replay a trace timeline:
 

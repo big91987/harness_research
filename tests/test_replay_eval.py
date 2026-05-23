@@ -1,6 +1,10 @@
 from pathlib import Path
+import json
+import os
+import subprocess
+import sys
 
-from harness.eval import EvalExpectation, evaluate_trace
+from harness.eval import EvalExpectation, EvalSuiteStore, evaluate_trace
 from harness.trace import TraceRecorder
 
 
@@ -58,3 +62,55 @@ def test_evaluate_trace_fails_cost_budget(tmp_path: Path) -> None:
 
     assert not report.passed
     assert report.checks["max_cost_usd"].startswith("failed")
+
+
+def test_eval_suite_can_add_case_from_trace(tmp_path: Path) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+    trace = TraceRecorder(trace_path)
+    trace.record("tool_call", session_id="s1", name="write_file", is_error=False)
+    trace.record("tool_call", session_id="s1", name="grep", is_error=False)
+    trace.record("model_response", session_id="s1", usage={"total_tokens": 42}, cost_usd=0.01)
+    trace.record("turn_end", session_id="s1", stop_reason="final_answer", final_text="created file")
+    suite = EvalSuiteStore(tmp_path / "golden.json")
+
+    case = suite.add_case_from_trace("derived", trace=trace_path)
+
+    assert case["expect"] == {
+        "final_text_contains": "created file",
+        "max_cost_usd": 0.011,
+        "max_tool_errors": 0,
+        "max_total_tokens": 42,
+        "required_tools": ["grep", "write_file"],
+        "stop_reason": "final_answer",
+    }
+    assert suite.run().passed
+
+
+def test_cli_eval_suite_add_from_trace(tmp_path: Path) -> None:
+    trace_path = tmp_path / "trace.jsonl"
+    trace = TraceRecorder(trace_path)
+    trace.record("tool_call", session_id="s1", name="read_file", is_error=False)
+    trace.record("turn_end", session_id="s1", stop_reason="final_answer", final_text="ok")
+    suite = tmp_path / "golden.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "eval-suite",
+            str(suite),
+            "--add-from-trace",
+            "read-smoke",
+            "--trace-path",
+            str(trace_path),
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    data = json.loads(suite.read_text(encoding="utf-8"))
+    assert "added: read-smoke" in result.stdout
+    assert data["cases"][0]["expect"]["required_tools"] == ["read_file"]

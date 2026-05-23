@@ -165,6 +165,7 @@ def build_parser() -> argparse.ArgumentParser:
     eval_suite = subparsers.add_parser("eval-suite", help="Manage and run golden trace suites.")
     eval_suite.add_argument("suite")
     eval_suite.add_argument("--add")
+    eval_suite.add_argument("--add-from-trace")
     eval_suite.add_argument("--list", action="store_true")
     eval_suite.add_argument("--run", action="store_true")
     eval_suite.add_argument("--trace-path")
@@ -841,6 +842,12 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if report.passed else 1
     if args.command == "eval-suite":
         store = EvalSuiteStore(args.suite)
+        if args.add_from_trace:
+            if not args.trace_path:
+                raise SystemExit("--trace-path is required with --add-from-trace")
+            store.add_case_from_trace(args.add_from_trace, trace=args.trace_path)
+            print(f"added: {args.add_from_trace}")
+            return 0
         if args.add:
             if not args.trace_path:
                 raise SystemExit("--trace-path is required with --add")
@@ -860,7 +867,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"passed: {report.passed}")
             print(f"cases: {report.passed_count}/{report.total}")
             return 0 if report.passed else 1
-        raise SystemExit("choose one of --add, --list, or --run")
+        raise SystemExit("choose one of --add, --add-from-trace, --list, or --run")
     if args.command == "artifacts":
         config = _merged_config(args)
         store = ArtifactStore(config.artifact_dir)

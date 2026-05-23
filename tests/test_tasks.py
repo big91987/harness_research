@@ -13,6 +13,10 @@ def test_task_store_creates_updates_lists_and_shows_tasks(tmp_path: Path) -> Non
     assert updated.session_id == "s1"
     assert store.load(task.id).title == "ship harness"
     assert [item.id for item in store.list()] == [task.id]
+    history = store.history(task.id)
+    assert [event["type"] for event in history] == ["created", "updated"]
+    assert history[1]["changes"]["status"] == TaskStatus.IN_PROGRESS.value
+    assert history[1]["changes"]["session_id"] == "s1"
 
 
 def test_task_store_filters_by_status(tmp_path: Path) -> None:
@@ -64,3 +68,18 @@ def test_task_store_merges_metadata_on_update(tmp_path: Path) -> None:
         "owner": "agent",
         "last_stop_reason": "final_answer",
     }
+    history = store.history(task.id)
+    assert history[-1]["changes"]["metadata"] == {"last_stop_reason": "final_answer"}
+
+
+def test_task_store_history_survives_reload(tmp_path: Path) -> None:
+    store = TaskStore(tmp_path)
+    task = store.create("ship harness")
+    store.update(task.id, status=TaskStatus.BLOCKED, metadata={"reason": "budget"})
+
+    reloaded = TaskStore(tmp_path)
+    history = reloaded.history(task.id)
+
+    assert len(history) == 2
+    assert history[0]["type"] == "created"
+    assert history[1]["changes"]["status"] == "blocked"

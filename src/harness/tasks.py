@@ -25,6 +25,7 @@ class Task:
     created_at: float = field(default_factory=time)
     updated_at: float = field(default_factory=time)
     metadata: dict[str, str] = field(default_factory=dict)
+    history: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -40,6 +41,7 @@ class Task:
             created_at=float(data.get("created_at") or time()),
             updated_at=float(data.get("updated_at") or time()),
             metadata=dict(data.get("metadata") or {}),
+            history=list(data.get("history") or []),
         )
 
 
@@ -60,6 +62,17 @@ class TaskStore:
         )
         if not task.title:
             raise ValueError("task title is required")
+        task.history.append(
+            {
+                "ts": task.created_at,
+                "type": "created",
+                "changes": {
+                    "title": task.title,
+                    "description": task.description,
+                    "metadata": dict(task.metadata),
+                },
+            }
+        )
         tasks = self._read()
         tasks[task.id] = task
         self._write(tasks)
@@ -89,6 +102,9 @@ class TaskStore:
         self._write(tasks)
         return True
 
+    def history(self, task_id: str) -> list[dict]:
+        return list(self.load(task_id).history)
+
     def update(
         self,
         task_id: str,
@@ -103,17 +119,25 @@ class TaskStore:
         if task_id not in tasks:
             raise KeyError(f"task not found: {task_id}")
         task = tasks[task_id]
+        changes: dict[str, object] = {}
         if title is not None:
             task.title = title.strip()
+            changes["title"] = task.title
         if description is not None:
             task.description = description.strip()
+            changes["description"] = task.description
         if status is not None:
             task.status = _status_value(status)
+            changes["status"] = task.status
         if session_id is not None:
             task.session_id = session_id
+            changes["session_id"] = session_id
         if metadata is not None:
             task.metadata.update(metadata)
+            changes["metadata"] = dict(metadata)
         task.updated_at = time()
+        if changes:
+            task.history.append({"ts": task.updated_at, "type": "updated", "changes": changes})
         tasks[task_id] = task
         self._write(tasks)
         return task

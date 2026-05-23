@@ -463,6 +463,11 @@ PYTHONPATH=src python3 -m harness.cli tasks \
 
 PYTHONPATH=src python3 -m harness.cli tasks \
   --task-dir /tmp/harness-tasks \
+  --history <task-id> \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli tasks \
+  --task-dir /tmp/harness-tasks \
   --delete <task-id>
 ```
 
@@ -471,6 +476,8 @@ and injects the active task into the model context. When the turn ends, a final
 answer marks the task `done`; other stop reasons mark it `blocked` and store the
 last stop reason in task metadata. Follow-up turns and future server APIs therefore
 have both a stable state anchor and task-aware prompts.
+Tasks also keep an append-only history of create/update changes so long-running
+work has an auditable state trail.
 
 Configure lifecycle hooks:
 

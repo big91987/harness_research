@@ -1080,6 +1080,28 @@ def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
     assert "status: done" in show.stdout
     assert f"session: {session_id}" in show.stdout
 
+    history = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--history",
+            task_id,
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    history_payload = json.loads(history.stdout)
+    assert [event["type"] for event in history_payload] == ["created", "updated", "updated", "updated"]
+    assert history_payload[-1]["changes"]["status"] == "done"
+    assert history_payload[-1]["changes"]["session_id"] == session_id
+
     listed_json = subprocess.run(
         [
             sys.executable,

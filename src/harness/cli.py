@@ -137,6 +137,7 @@ def build_parser() -> argparse.ArgumentParser:
     tasks.add_argument("--description", default="")
     tasks.add_argument("--update")
     tasks.add_argument("--show")
+    tasks.add_argument("--history")
     tasks.add_argument("--delete")
     tasks.add_argument("--status", choices=[status.value for status in TaskStatus])
     tasks.add_argument("--session")
@@ -773,6 +774,17 @@ def main(argv: list[str] | None = None) -> int:
                 print(json.dumps(task.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
                 return 0
             _print_task(task)
+            return 0
+        if args.history:
+            try:
+                history = tasks.history(args.history)
+            except KeyError as exc:
+                raise SystemExit(str(exc)) from exc
+            if args.json:
+                print(json.dumps(history, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            for event in history:
+                print(f"{event.get('type')} {event.get('changes')}")
             return 0
         if args.delete:
             if not tasks.delete(args.delete):

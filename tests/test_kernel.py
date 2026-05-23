@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from harness.audit import AuditLog
-from harness.cost import ModelPricing
+from harness.cost import ModelPricing, RuntimeBudget
 from harness.kernel import AgentKernel
 from harness.model import FakeModelClient
 from harness.permissions import PermissionMode, Policy
@@ -180,6 +180,45 @@ def test_kernel_aggregates_usage_aliases_and_cost(tmp_path: Path) -> None:
     }
     assert session.cost_usd == 2.0
     assert '"cost_usd": 2.0' in (tmp_path / "trace.jsonl").read_text()
+
+
+def test_kernel_stops_before_tools_when_runtime_budget_is_exceeded(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    trace = TraceRecorder(tmp_path / "trace.jsonl")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="would write",
+                tool_calls=[
+                    ToolCall(
+                        id="call-1",
+                        name="write_file",
+                        arguments={"path": "over.txt", "content": "too much"},
+                    )
+                ],
+                usage={"prompt_tokens": 101, "completion_tokens": 0, "total_tokens": 101},
+            )
+        ]
+    )
+    session = Session.new(workspace=str(workspace.root))
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.WORKSPACE_WRITE),
+        trace=trace,
+        budget=RuntimeBudget(max_total_tokens=100),
+    )
+
+    result = kernel.run_turn(session, "write over budget")
+
+    assert result.stop_reason == "budget_exceeded"
+    assert "Budget exceeded" in result.final_text
+    assert not (workspace.root / "over.txt").exists()
+    trace_text = (tmp_path / "trace.jsonl").read_text()
+    assert '"budget_exceeded"' in trace_text
+    assert '"tool_call"' not in trace_text
 
 
 def test_kernel_policy_denies_disallowed_tool_and_audits(tmp_path: Path) -> None:

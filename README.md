@@ -261,7 +261,10 @@ Configure cost tracking in `harness.json` or environment variables:
 `HARNESS_INPUT_COST_PER_MILLION_TOKENS`, `HARNESS_OUTPUT_COST_PER_MILLION_TOKENS`,
 `HARNESS_MAX_TOTAL_TOKENS`, and `HARNESS_MAX_COST_USD` override the JSON values.
 The kernel aggregates usage and cost into sessions, and trace eval/golden suites can
-fail runs that exceed token or cost budgets.
+fail runs that exceed token or cost budgets. During a live run, `max_total_tokens`
+and `max_cost_usd` also act as runtime guards: once the accumulated session usage
+crosses either limit, the kernel stops the turn with `budget_exceeded` before
+executing any additional tool calls.
 
 Kernel failure behavior:
 
@@ -270,6 +273,7 @@ Kernel failure behavior:
 - Invalid model tool-call arguments produce explicit protocol errors instead of obscure JSON failures.
 - Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
 - Session state also aggregates estimated cost when model pricing is configured.
+- Runtime budget overruns stop the turn before additional tool calls execute.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
 - Tool calls are also written to an audit log when configured.

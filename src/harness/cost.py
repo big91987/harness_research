@@ -26,3 +26,16 @@ class ModelPricing:
             tokens["prompt_tokens"] / 1_000_000 * self.input_cost_per_million_tokens
             + tokens["completion_tokens"] / 1_000_000 * self.output_cost_per_million_tokens
         )
+
+
+@dataclass(frozen=True)
+class RuntimeBudget:
+    max_total_tokens: int | None = None
+    max_cost_usd: float | None = None
+
+    def check(self, *, total_tokens: int, cost_usd: float) -> str | None:
+        if self.max_total_tokens is not None and total_tokens > self.max_total_tokens:
+            return f"total tokens {total_tokens} exceeded limit {self.max_total_tokens}"
+        if self.max_cost_usd is not None and cost_usd > self.max_cost_usd:
+            return f"cost {cost_usd:.6f} exceeded limit {self.max_cost_usd:.6f}"
+        return None

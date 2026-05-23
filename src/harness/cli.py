@@ -9,7 +9,7 @@ from harness.audit import AuditLog
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
-from harness.cost import ModelPricing
+from harness.cost import ModelPricing, RuntimeBudget
 from harness.doctor import DoctorReport
 from harness.eval import EvalExpectation, evaluate_trace, run_golden_suite
 from harness.kernel import AgentKernel
@@ -155,6 +155,10 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         pricing=ModelPricing(
             input_cost_per_million_tokens=config.input_cost_per_million_tokens,
             output_cost_per_million_tokens=config.output_cost_per_million_tokens,
+        ),
+        budget=RuntimeBudget(
+            max_total_tokens=config.max_total_tokens,
+            max_cost_usd=config.max_cost_usd,
         ),
         max_iterations=config.max_iterations,
     )

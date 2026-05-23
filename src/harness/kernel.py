@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from harness.audit import AuditLog
 from harness.context import ContextManager
-from harness.cost import ModelPricing, canonical_usage
+from harness.cost import ModelPricing, RuntimeBudget, canonical_usage
 from harness.memory import MarkdownMemoryStore
 from harness.model import ModelClient
 from harness.permissions import Policy
@@ -32,6 +32,7 @@ class AgentKernel:
     audit: AuditLog | None = None
     memory: MarkdownMemoryStore | None = None
     pricing: ModelPricing = ModelPricing()
+    budget: RuntimeBudget = RuntimeBudget()
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     max_iterations: int = 20
 
@@ -71,6 +72,23 @@ class AgentKernel:
                 usage=response.usage,
                 cost_usd=cost_usd,
             )
+            budget_error = self.budget.check(
+                total_tokens=session.usage.get("total_tokens", 0),
+                cost_usd=session.cost_usd,
+            )
+            if budget_error:
+                final_text = f"Budget exceeded: {budget_error}"
+                stop_reason = "budget_exceeded"
+                trace.record(
+                    "budget_exceeded",
+                    session_id=session.id,
+                    iteration=iterations,
+                    reason=budget_error,
+                    usage=session.usage,
+                    cost_usd=session.cost_usd,
+                )
+                session.messages.append(Message.assistant(final_text))
+                break
 
             session.messages.append(Message.assistant(response.content, response.tool_calls))
             if not response.tool_calls:

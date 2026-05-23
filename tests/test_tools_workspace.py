@@ -254,6 +254,66 @@ def test_move_path_moves_files_inside_workspace(tmp_path: Path) -> None:
     assert (tmp_path / "nested" / "dst.txt").read_text(encoding="utf-8") == "payload"
 
 
+def test_make_directory_creates_nested_directories(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+
+    result = tools.get("make_directory").run(
+        {"path": "src/pkg"},
+        workspace,
+        policy,
+    )
+
+    assert not result.is_error
+    assert "created directory src/pkg" in result.output
+    assert (tmp_path / "src" / "pkg").is_dir()
+
+
+def test_copy_path_copies_files_and_directories_inside_workspace(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+    (tmp_path / "source.txt").write_text("payload", encoding="utf-8")
+    (tmp_path / "template").mkdir()
+    (tmp_path / "template" / "a.txt").write_text("a", encoding="utf-8")
+
+    file_result = tools.get("copy_path").run(
+        {"source": "source.txt", "destination": "copies/source.txt"},
+        workspace,
+        policy,
+    )
+    dir_result = tools.get("copy_path").run(
+        {"source": "template", "destination": "copies/template"},
+        workspace,
+        policy,
+    )
+
+    assert not file_result.is_error
+    assert not dir_result.is_error
+    assert "copied source.txt to copies/source.txt" in file_result.output
+    assert (tmp_path / "copies" / "source.txt").read_text(encoding="utf-8") == "payload"
+    assert (tmp_path / "copies" / "template" / "a.txt").read_text(encoding="utf-8") == "a"
+
+
+def test_copy_path_refuses_existing_destination(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+    (tmp_path / "source.txt").write_text("payload", encoding="utf-8")
+    (tmp_path / "dest.txt").write_text("existing", encoding="utf-8")
+
+    result = tools.get("copy_path").run(
+        {"source": "source.txt", "destination": "dest.txt"},
+        workspace,
+        policy,
+    )
+
+    assert result.is_error
+    assert "destination already exists" in result.output
+    assert (tmp_path / "dest.txt").read_text(encoding="utf-8") == "existing"
+
+
 def test_delete_path_deletes_file_and_recursive_directory(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -596,6 +656,8 @@ def test_tool_registry_describes_tools() -> None:
     assert diff_description["parameters"]["required"] == ["path", "old", "new"]
     assert "replace_all" in diff_description["parameters"]["properties"]
     assert "replace_all" in registry.describe("edit_file")["parameters"]["properties"]
+    assert registry.describe("make_directory")["required_permission"] == "workspace-write"
+    assert registry.describe("copy_path")["parameters"]["required"] == ["source", "destination"]
     assert "max_matches" in registry.describe("grep")["parameters"]["properties"]
     assert "context_lines" in registry.describe("grep")["parameters"]["properties"]
     assert "case_sensitive" in registry.describe("grep")["parameters"]["properties"]

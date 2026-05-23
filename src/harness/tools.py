@@ -268,6 +268,29 @@ def _move_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     )
 
 
+def _make_directory(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    path = workspace.resolve(args["path"])
+    path.mkdir(parents=True, exist_ok=True)
+    return ToolResult(f"created directory {path.relative_to(workspace.root)}")
+
+
+def _copy_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    source = workspace.resolve(args["source"])
+    destination = workspace.resolve(args["destination"])
+    if not source.exists():
+        return ToolResult(f"source does not exist: {args['source']}", is_error=True)
+    if destination.exists():
+        return ToolResult(f"destination already exists: {args['destination']}", is_error=True)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_dir():
+        shutil.copytree(source, destination)
+    else:
+        shutil.copy2(source, destination)
+    return ToolResult(
+        f"copied {source.relative_to(workspace.root)} to {destination.relative_to(workspace.root)}"
+    )
+
+
 def _delete_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     recursive = bool(args.get("recursive", False))
@@ -499,6 +522,29 @@ def default_tool_registry(
                 ["source", "destination"],
             ),
             _move_path,
+            PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=limits.max_output_chars,
+        )
+    )
+    registry.register(
+        Tool(
+            "make_directory",
+            "Create a directory inside the workspace.",
+            _schema({"path": {"type": "string"}}, ["path"]),
+            _make_directory,
+            PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=limits.max_output_chars,
+        )
+    )
+    registry.register(
+        Tool(
+            "copy_path",
+            "Copy a file or directory inside the workspace.",
+            _schema(
+                {"source": {"type": "string"}, "destination": {"type": "string"}},
+                ["source", "destination"],
+            ),
+            _copy_path,
             PermissionMode.WORKSPACE_WRITE,
             max_output_chars=limits.max_output_chars,
         )

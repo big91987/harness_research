@@ -278,8 +278,12 @@ PYTHONPATH=src python3 -m harness.cli checkpoint \
 
 PYTHONPATH=src python3 -m harness.cli checkpoint \
   --workspace /tmp/harness-ws \
-  --restore /tmp/harness-checkpoints/<checkpoint-id>/manifest.json
+  --restore /tmp/harness-checkpoints/<checkpoint-id>/manifest.json \
+  --clean
 ```
+
+Use `--clean` when restore should remove files that were created after the
+checkpoint.
 
 Review workspace changes before restoring a checkpoint:
 

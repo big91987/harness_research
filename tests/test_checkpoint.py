@@ -27,6 +27,19 @@ def test_workspace_checkpoint_creates_manifest_and_restores(tmp_path: Path) -> N
     assert (workspace / "nested" / "b.txt").read_text(encoding="utf-8") == "beta"
 
 
+def test_workspace_checkpoint_clean_restore_removes_extra_files(tmp_path: Path) -> None:
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / "a.txt").write_text("alpha", encoding="utf-8")
+    checkpoint = WorkspaceCheckpoint.create(workspace, tmp_path / "checkpoints")
+    (workspace / "extra.txt").write_text("extra", encoding="utf-8")
+
+    WorkspaceCheckpoint.restore(checkpoint.manifest_path, workspace, clean=True)
+
+    assert (workspace / "a.txt").exists()
+    assert not (workspace / "extra.txt").exists()
+
+
 def test_workspace_checkpoint_diff_reports_added_modified_and_deleted(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -111,3 +124,32 @@ def test_cli_checkpoint_diff(tmp_path: Path) -> None:
     assert "clean: False" in result.stdout
     assert "added: b.txt" in result.stdout
     assert "modified: a.txt" in result.stdout
+
+
+def test_cli_checkpoint_clean_restore(tmp_path: Path) -> None:
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / "a.txt").write_text("alpha", encoding="utf-8")
+    checkpoint = WorkspaceCheckpoint.create(workspace, tmp_path / "checkpoints")
+    (workspace / "extra.txt").write_text("extra", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "checkpoint",
+            "--workspace",
+            str(workspace),
+            "--restore",
+            str(checkpoint.manifest_path),
+            "--clean",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert "restored:" in result.stdout
+    assert not (workspace / "extra.txt").exists()

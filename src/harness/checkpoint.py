@@ -95,16 +95,28 @@ class WorkspaceCheckpoint:
         )
 
     @classmethod
-    def restore(cls, manifest_path: str | Path, workspace: str | Path) -> "WorkspaceCheckpoint":
+    def restore(
+        cls,
+        manifest_path: str | Path,
+        workspace: str | Path,
+        *,
+        clean: bool = False,
+    ) -> "WorkspaceCheckpoint":
         checkpoint = cls.load(manifest_path)
         workspace_path = Path(workspace).expanduser().resolve()
         workspace_path.mkdir(parents=True, exist_ok=True)
+        if clean:
+            current = _scan_files(workspace_path)
+            for rel in sorted(set(current) - set(checkpoint.files)):
+                (workspace_path / rel).unlink()
         files_root = checkpoint.root / "files"
         for rel in checkpoint.files:
             source = files_root / rel
             target = workspace_path / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, target)
+        if clean:
+            _remove_empty_dirs(workspace_path)
         return checkpoint
 
     @classmethod
@@ -147,3 +159,12 @@ def _scan_files(root: Path) -> dict[str, CheckpointFile]:
         rel = path.relative_to(root).as_posix()
         files[rel] = CheckpointFile(size=path.stat().st_size, sha256=_sha256(path))
     return files
+
+
+def _remove_empty_dirs(root: Path) -> None:
+    directories = (item for item in root.rglob("*") if item.is_dir())
+    for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
+        try:
+            path.rmdir()
+        except OSError:
+            pass

@@ -141,13 +141,24 @@ def _schema(properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
 def _list_files(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     base = workspace.resolve(args.get("path") or ".")
     pattern = args.get("pattern") or "*"
+    max_entries = int(args.get("max_entries") or 0)
+    if max_entries < 0:
+        return ToolResult("max_entries must be >= 0", is_error=True)
     if not base.exists():
         return ToolResult(f"path does not exist: {base}", is_error=True)
-    files: list[str] = []
+    entries: list[str] = []
+    truncated = False
     for path in sorted(base.rglob("*")):
-        if path.is_file() and fnmatch.fnmatch(path.name, pattern):
-            files.append(str(path.relative_to(workspace.root)))
-    return ToolResult("\n".join(files))
+        if not fnmatch.fnmatch(path.name, pattern):
+            continue
+        suffix = "/" if path.is_dir() else ""
+        entries.append(str(path.relative_to(workspace.root)) + suffix)
+        if max_entries > 0 and len(entries) >= max_entries:
+            truncated = True
+            break
+    if truncated:
+        entries.append(f"[truncated after {max_entries} entries]")
+    return ToolResult("\n".join(entries))
 
 
 def _read_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
@@ -386,7 +397,14 @@ def default_tool_registry(
         Tool(
             "list_files",
             "List files under a workspace path.",
-            _schema({"path": {"type": "string"}, "pattern": {"type": "string"}}, []),
+            _schema(
+                {
+                    "path": {"type": "string"},
+                    "pattern": {"type": "string"},
+                    "max_entries": {"type": "integer"},
+                },
+                [],
+            ),
             _list_files,
             max_output_chars=limits.max_output_chars,
         )

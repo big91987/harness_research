@@ -95,6 +95,9 @@ class ToolRegistry:
     def definitions(self) -> list[dict[str, Any]]:
         return [tool.definition() for tool in self._tools.values()]
 
+    def describe(self, name: str) -> dict[str, Any]:
+        return self.get(name).definition()
+
     def openai_definitions(self) -> list[dict[str, Any]]:
         return [tool.openai_definition() for tool in self._tools.values()]
 

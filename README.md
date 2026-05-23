@@ -365,6 +365,9 @@ PYTHONPATH=src python3 -m harness.cli run "edit file" --permission prompt
 Restrict tools with allow/deny lists:
 
 ```bash
+PYTHONPATH=src python3 -m harness.cli tools --show read_file
+PYTHONPATH=src python3 -m harness.cli tools --json
+
 PYTHONPATH=src python3 -m harness.cli run "inspect only" \
   --permission danger \
   --allow-tool read_file \

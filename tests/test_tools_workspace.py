@@ -93,3 +93,13 @@ def test_bash_timeout_is_clamped(tmp_path: Path) -> None:
 
     assert result.is_error
     assert "timed out" in result.output
+
+
+def test_tool_registry_describes_tools() -> None:
+    registry = default_tool_registry()
+
+    description = registry.describe("read_file")
+
+    assert description["name"] == "read_file"
+    assert description["required_permission"] == "read-only"
+    assert description["parameters"]["required"] == ["path"]

@@ -62,7 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
 
-    subparsers.add_parser("tools", help="List built-in tools.")
+    tools = subparsers.add_parser("tools", help="List built-in tools.")
+    tools.add_argument("--show")
+    tools.add_argument("--json", action="store_true")
 
     sessions = subparsers.add_parser("sessions", help="List local sessions.")
     sessions.add_argument("--session-dir")
@@ -375,7 +377,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"stop_reason: {result.stop_reason}")
         return 0 if result.stop_reason == "final_answer" else 2
     if args.command == "tools":
-        for name in default_tool_registry().names():
+        tools = default_tool_registry()
+        if args.show:
+            try:
+                description = tools.describe(args.show)
+            except KeyError as exc:
+                raise SystemExit(str(exc)) from exc
+            if args.json:
+                print(json.dumps(description, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(f"name: {description['name']}")
+                print(f"description: {description['description']}")
+                print(f"required_permission: {description['required_permission']}")
+                print("parameters:")
+                print(json.dumps(description["parameters"], ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.json:
+            print(json.dumps(tools.definitions(), ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        for name in tools.names():
             print(name)
         return 0
     if args.command == "sessions":

@@ -9,7 +9,8 @@ from harness.audit import AuditLog
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
-from harness.eval import EvalExpectation, evaluate_trace
+from harness.doctor import DoctorReport
+from harness.eval import EvalExpectation, evaluate_trace, run_golden_suite
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
@@ -64,6 +65,9 @@ def build_parser() -> argparse.ArgumentParser:
     eval_cmd.add_argument("--max-tool-errors", type=int)
     eval_cmd.add_argument("--require-tool", action="append", default=[])
     eval_cmd.add_argument("--final-text-contains")
+
+    golden = subparsers.add_parser("golden", help="Run a golden trace regression suite.")
+    golden.add_argument("suite")
 
     artifacts = subparsers.add_parser("artifacts", help="Register, list, and verify local artifacts.")
     artifacts.add_argument("--artifact-dir")
@@ -241,6 +245,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{key}: {value}")
         print(f"passed: {report.passed}")
         return 0 if report.passed else 1
+    if args.command == "golden":
+        report = run_golden_suite(args.suite)
+        for case in report.cases:
+            status = "passed" if case.report.passed else "failed"
+            print(f"{case.name}: {status}")
+            for key, value in case.report.checks.items():
+                print(f"  {key}: {value}")
+        print(f"passed: {report.passed}")
+        print(f"cases: {report.passed_count}/{report.total}")
+        return 0 if report.passed else 1
     if args.command == "artifacts":
         config = _merged_config(args)
         store = ArtifactStore(config.artifact_dir)
@@ -297,16 +311,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "doctor":
         config = _merged_config(args)
-        workspace = Workspace(config.workspace)
-        session_store = JsonlSessionStore(config.session_dir)
-        memory_store = MarkdownMemoryStore(config.memory_dir)
         tools = default_tool_registry()
-        print(f"workspace: {workspace.root}")
-        print(f"session_dir: {session_store.root}")
-        print(f"memory_file: {memory_store.path}")
-        print(f"tools: {len(tools.names())}")
-        print(f"base_url_configured: {bool(config.base_url)}")
-        print(f"api_key_configured: {bool(config.api_key)}")
+        report = DoctorReport.build(
+            workspace=config.workspace,
+            session_dir=config.session_dir,
+            memory_dir=config.memory_dir,
+            trace=config.trace,
+            audit=config.audit,
+            artifact_dir=config.artifact_dir,
+            base_url=config.base_url,
+            api_key=config.api_key,
+            tools_count=len(tools.names()),
+        )
+        for name, check in report.checks.items():
+            status = "ok" if check.ok else check.level
+            print(f"{name}: {status} - {check.message}")
+        print(f"overall: {report.ok}")
         return 0
     parser.error(f"unknown command {args.command}")
     return 2

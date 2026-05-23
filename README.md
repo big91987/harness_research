@@ -94,6 +94,29 @@ PYTHONPATH=src python3 -m harness.cli eval \
   --max-tool-errors 0
 ```
 
+Run a golden trace suite:
+
+```json
+{
+  "cases": [
+    {
+      "name": "write-file-smoke",
+      "trace": "/tmp/harness-trace.jsonl",
+      "expect": {
+        "stop_reason": "final_answer",
+        "required_tools": ["write_file"],
+        "max_tool_errors": 0,
+        "final_text_contains": "created"
+      }
+    }
+  ]
+}
+```
+
+```bash
+PYTHONPATH=src python3 -m harness.cli golden /tmp/harness-golden.json
+```
+
 Replay a trace timeline:
 
 ```bash
@@ -130,6 +153,12 @@ Inspect audit events:
 
 ```bash
 PYTHONPATH=src python3 -m harness.cli audit --audit /tmp/harness-audit.jsonl
+```
+
+Doctor checks local writability and harness readiness:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli doctor
 ```
 
 `prompt` permission mode asks for approval before mutating or dangerous tools:

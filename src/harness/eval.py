@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
 from pathlib import Path
 
 from harness.trace import TraceRecorder
@@ -18,6 +19,20 @@ class EvalExpectation:
 class EvalReport:
     passed: bool
     checks: dict[str, str]
+
+
+@dataclass
+class GoldenCaseReport:
+    name: str
+    report: EvalReport
+
+
+@dataclass
+class GoldenSuiteReport:
+    passed: bool
+    total: int
+    passed_count: int
+    cases: list[GoldenCaseReport]
 
 
 def evaluate_trace(path: str | Path, expectation: EvalExpectation) -> EvalReport:
@@ -62,3 +77,30 @@ def evaluate_trace(path: str | Path, expectation: EvalExpectation) -> EvalReport
         checks=checks,
     )
 
+
+def run_golden_suite(path: str | Path) -> GoldenSuiteReport:
+    suite_path = Path(path).expanduser().resolve()
+    data = json.loads(suite_path.read_text(encoding="utf-8"))
+    case_reports: list[GoldenCaseReport] = []
+    for index, case in enumerate(data.get("cases", []), start=1):
+        expect = case.get("expect") or {}
+        trace = case["trace"]
+        if not Path(trace).is_absolute():
+            trace = str((suite_path.parent / trace).resolve())
+        report = evaluate_trace(
+            trace,
+            EvalExpectation(
+                stop_reason=expect.get("stop_reason"),
+                max_tool_errors=expect.get("max_tool_errors"),
+                required_tools=list(expect.get("required_tools") or []),
+                final_text_contains=expect.get("final_text_contains"),
+            ),
+        )
+        case_reports.append(GoldenCaseReport(name=case.get("name") or f"case-{index}", report=report))
+    passed_count = sum(1 for case in case_reports if case.report.passed)
+    return GoldenSuiteReport(
+        passed=passed_count == len(case_reports) and bool(case_reports),
+        total=len(case_reports),
+        passed_count=passed_count,
+        cases=case_reports,
+    )

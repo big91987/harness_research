@@ -5,6 +5,7 @@ __all__ = [
     "audit",
     "context",
     "config",
+    "doctor",
     "eval",
     "checkpoint",
     "kernel",

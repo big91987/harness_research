@@ -274,18 +274,40 @@ def _delete_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
 def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     query = str(args["query"])
     base = workspace.resolve(args.get("path") or ".")
+    max_matches = int(args.get("max_matches") or 0)
+    context_lines = int(args.get("context_lines") or 0)
+    if max_matches < 0:
+        return ToolResult("max_matches must be >= 0", is_error=True)
+    if context_lines < 0:
+        return ToolResult("context_lines must be >= 0", is_error=True)
     matches: list[str] = []
+    match_count = 0
+    truncated = False
     for path in sorted(base.rglob("*") if base.is_dir() else [base]):
         if not path.is_file():
             continue
         try:
             if b"\x00" in path.read_bytes()[:8192]:
                 continue
-            for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for lineno, line in enumerate(lines, start=1):
                 if query in line:
-                    matches.append(f"{path.relative_to(workspace.root)}:{lineno}:{line}")
+                    rel = path.relative_to(workspace.root)
+                    for index in range(max(1, lineno - context_lines), lineno):
+                        matches.append(f"{rel}:{index}-{lines[index - 1]}")
+                    matches.append(f"{rel}:{lineno}:{line}")
+                    for index in range(lineno + 1, min(len(lines), lineno + context_lines) + 1):
+                        matches.append(f"{rel}:{index}-{lines[index - 1]}")
+                    match_count += 1
+                    if max_matches > 0 and match_count >= max_matches:
+                        truncated = True
+                        raise StopIteration
         except UnicodeDecodeError:
             continue
+        except StopIteration:
+            break
+    if truncated:
+        matches.append(f"[truncated after {max_matches} matches]")
     return ToolResult("\n".join(matches))
 
 
@@ -467,7 +489,15 @@ def default_tool_registry(
         Tool(
             "grep",
             "Search for a literal string in workspace files.",
-            _schema({"query": {"type": "string"}, "path": {"type": "string"}}, ["query"]),
+            _schema(
+                {
+                    "query": {"type": "string"},
+                    "path": {"type": "string"},
+                    "max_matches": {"type": "integer"},
+                    "context_lines": {"type": "integer"},
+                },
+                ["query"],
+            ),
             _grep,
             max_output_chars=limits.max_output_chars,
         )

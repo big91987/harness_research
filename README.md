@@ -473,6 +473,11 @@ PYTHONPATH=src python3 -m harness.cli tools \
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
+  --call grep \
+  --args-json '{"query":"TODO","path":".","max_matches":20,"context_lines":2}'
+
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
   --permission workspace-write \
   --call edit_file \
   --args-json '{"path":"out.txt","old":"ok","new":"OK","replace_all":true}'

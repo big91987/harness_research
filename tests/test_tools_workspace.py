@@ -222,6 +222,63 @@ def test_delete_path_refuses_nonempty_directory_without_recursive(tmp_path: Path
     assert (tmp_path / "dir" / "nested.txt").exists()
 
 
+def test_grep_can_limit_matches(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "a.txt").write_text("needle one\nneedle two\nneedle three\n", encoding="utf-8")
+
+    result = tools.get("grep").run(
+        {"query": "needle", "max_matches": 2},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert not result.is_error
+    assert "a.txt:1:needle one" in result.output
+    assert "a.txt:2:needle two" in result.output
+    assert "needle three" not in result.output
+    assert "[truncated after 2 matches]" in result.output
+
+
+def test_grep_can_include_context_lines(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "a.txt").write_text("before\nneedle\n after\n", encoding="utf-8")
+
+    result = tools.get("grep").run(
+        {"query": "needle", "context_lines": 1},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert not result.is_error
+    assert "a.txt:1-before" in result.output
+    assert "a.txt:2:needle" in result.output
+    assert "a.txt:3- after" in result.output
+
+
+def test_grep_rejects_negative_limits(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "a.txt").write_text("needle\n", encoding="utf-8")
+
+    max_result = tools.get("grep").run(
+        {"query": "needle", "max_matches": -1},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+    context_result = tools.get("grep").run(
+        {"query": "needle", "context_lines": -1},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert max_result.is_error
+    assert "max_matches must be >= 0" in max_result.output
+    assert context_result.is_error
+    assert "context_lines must be >= 0" in context_result.output
+
+
 def test_tool_output_is_truncated(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry(max_output_chars=10)
@@ -434,6 +491,8 @@ def test_tool_registry_describes_tools() -> None:
     assert diff_description["parameters"]["required"] == ["path", "old", "new"]
     assert "replace_all" in diff_description["parameters"]["properties"]
     assert "replace_all" in registry.describe("edit_file")["parameters"]["properties"]
+    assert "max_matches" in registry.describe("grep")["parameters"]["properties"]
+    assert "context_lines" in registry.describe("grep")["parameters"]["properties"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]

@@ -189,6 +189,64 @@ def test_cli_config_validate_exits_nonzero_for_errors(tmp_path: Path) -> None:
     }
 
 
+def test_cli_tools_can_call_tool_with_json_args(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tools",
+            "--workspace",
+            str(workspace),
+            "--permission",
+            "workspace-write",
+            "--call",
+            "write_file",
+            "--args-json",
+            json.dumps({"path": "out.txt", "content": "ok"}),
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["name"] == "write_file"
+    assert payload["is_error"] is False
+    assert (workspace / "out.txt").read_text(encoding="utf-8") == "ok"
+
+
+def test_cli_tools_call_exits_nonzero_on_policy_error(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tools",
+            "--workspace",
+            str(tmp_path / "workspace"),
+            "--permission",
+            "read-only",
+            "--call",
+            "write_file",
+            "--args-json",
+            json.dumps({"path": "out.txt", "content": "no"}),
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["is_error"] is True
+    assert "requires workspace-write permission" in payload["output"]
+
+
 def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     session_dir = tmp_path / "sessions"
     workspace = tmp_path / "ws"

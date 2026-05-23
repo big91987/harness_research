@@ -65,6 +65,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     tools = subparsers.add_parser("tools", help="List built-in tools.")
     tools.add_argument("--show")
+    tools.add_argument("--call", help="Execute one built-in tool directly.")
+    tools.add_argument("--args-json", default="{}", help="JSON object arguments for --call.")
+    tools.add_argument("--args-file", help="Path to a JSON object arguments file for --call.")
+    tools.add_argument("--workspace")
+    tools.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
+    tools.add_argument("--audit")
+    tools.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
+    tools.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
+    tools.add_argument("--max-output-chars", type=int)
+    tools.add_argument("--max-file-read-bytes", type=int)
+    tools.add_argument("--default-bash-timeout-seconds", type=int)
+    tools.add_argument("--max-bash-timeout-seconds", type=int)
     tools.add_argument("--json", action="store_true")
 
     config_cmd = subparsers.add_parser("config", help="Show and validate merged harness config.")
@@ -343,6 +355,21 @@ def _load_mock_responses(path: str | Path) -> list[ModelResponse]:
     return responses
 
 
+def _load_tool_arguments(args: argparse.Namespace) -> dict:
+    source = (
+        Path(args.args_file).read_text(encoding="utf-8")
+        if args.args_file
+        else args.args_json
+    )
+    try:
+        payload = json.loads(source)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"invalid tool arguments JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit("tool arguments must be a JSON object")
+    return payload
+
+
 def _task_context(config: HarnessConfig, task_id: str | None) -> str:
     if not task_id:
         return ""
@@ -410,7 +437,48 @@ def main(argv: list[str] | None = None) -> int:
         print(f"stop_reason: {result.stop_reason}")
         return 0 if result.stop_reason == "final_answer" else 2
     if args.command == "tools":
-        tools = default_tool_registry()
+        config = _merged_config(args)
+        tools = default_tool_registry(
+            max_output_chars=config.max_output_chars,
+            max_file_read_bytes=config.max_file_read_bytes,
+            default_bash_timeout_seconds=config.default_bash_timeout_seconds,
+            max_bash_timeout_seconds=config.max_bash_timeout_seconds,
+        )
+        if args.call:
+            try:
+                tool = tools.get(args.call)
+            except KeyError as exc:
+                raise SystemExit(str(exc)) from exc
+            result = tool.run(
+                _load_tool_arguments(args),
+                Workspace(config.workspace),
+                Policy(
+                    PermissionMode(config.permission),
+                    allowed_tools=(
+                        set(config.allowed_tools) if config.allowed_tools is not None else None
+                    ),
+                    denied_tools=(
+                        set(config.denied_tools) if config.denied_tools is not None else None
+                    ),
+                    audit=AuditLog(config.audit),
+                ),
+            )
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "name": args.call,
+                            "is_error": result.is_error,
+                            "output": result.output,
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+            else:
+                print(result.output)
+            return 1 if result.is_error else 0
         if args.show:
             try:
                 description = tools.describe(args.show)

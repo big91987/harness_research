@@ -448,6 +448,13 @@ Restrict tools with allow/deny lists:
 PYTHONPATH=src python3 -m harness.cli tools --show read_file
 PYTHONPATH=src python3 -m harness.cli tools --json
 
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
+  --permission workspace-write \
+  --call write_file \
+  --args-json '{"path":"out.txt","content":"ok"}' \
+  --json
+
 PYTHONPATH=src python3 -m harness.cli run "inspect only" \
   --permission danger \
   --allow-tool read_file \

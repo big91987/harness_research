@@ -36,3 +36,13 @@ def test_read_only_policy_denies_writes_but_allows_reads(tmp_path: Path) -> None
     assert denied.is_error
     assert "requires" in denied.output
 
+
+def test_bash_requires_danger_permission(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    denied = tools.get("bash").run({"command": "pwd"}, workspace, Policy(PermissionMode.WORKSPACE_WRITE))
+    assert denied.is_error
+
+    allowed = tools.get("bash").run({"command": "printf ok"}, workspace, Policy(PermissionMode.DANGER))
+    assert allowed.output == "ok"

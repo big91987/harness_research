@@ -11,7 +11,7 @@ from harness.config import HarnessConfig
 from harness.context import ContextManager
 from harness.cost import ModelPricing, RuntimeBudget
 from harness.doctor import DoctorReport
-from harness.eval import EvalExpectation, evaluate_trace, run_golden_suite
+from harness.eval import EvalExpectation, EvalSuiteStore, evaluate_trace, run_golden_suite
 from harness.handoff import HandoffBuilder
 from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
@@ -107,6 +107,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     golden = subparsers.add_parser("golden", help="Run a golden trace regression suite.")
     golden.add_argument("suite")
+
+    eval_suite = subparsers.add_parser("eval-suite", help="Manage and run golden trace suites.")
+    eval_suite.add_argument("suite")
+    eval_suite.add_argument("--add")
+    eval_suite.add_argument("--list", action="store_true")
+    eval_suite.add_argument("--run", action="store_true")
+    eval_suite.add_argument("--trace-path")
+    eval_suite.add_argument("--expect-stop-reason")
+    eval_suite.add_argument("--max-tool-errors", type=int)
+    eval_suite.add_argument("--require-tool", action="append", default=[])
+    eval_suite.add_argument("--final-text-contains")
+    eval_suite.add_argument("--max-total-tokens", type=int)
+    eval_suite.add_argument("--max-cost-usd", type=float)
 
     artifacts = subparsers.add_parser("artifacts", help="Register, list, and verify local artifacts.")
     artifacts.add_argument("--artifact-dir")
@@ -294,6 +307,23 @@ def _task_context(config: HarnessConfig, task_id: str | None) -> str:
         raise SystemExit(str(exc)) from exc
 
 
+def _eval_expect_dict(args: argparse.Namespace) -> dict:
+    expect: dict = {}
+    if args.expect_stop_reason is not None:
+        expect["stop_reason"] = args.expect_stop_reason
+    if args.max_tool_errors is not None:
+        expect["max_tool_errors"] = args.max_tool_errors
+    if args.require_tool:
+        expect["required_tools"] = args.require_tool
+    if args.final_text_contains is not None:
+        expect["final_text_contains"] = args.final_text_contains
+    if args.max_total_tokens is not None:
+        expect["max_total_tokens"] = args.max_total_tokens
+    if args.max_cost_usd is not None:
+        expect["max_cost_usd"] = args.max_cost_usd
+    return expect
+
+
 def _print_task(task) -> None:  # noqa: ANN001 - keep CLI formatting decoupled from task dataclass.
     print(f"task: {task.id}")
     print(f"title: {task.title}")
@@ -459,6 +489,28 @@ def main(argv: list[str] | None = None) -> int:
         print(f"passed: {report.passed}")
         print(f"cases: {report.passed_count}/{report.total}")
         return 0 if report.passed else 1
+    if args.command == "eval-suite":
+        store = EvalSuiteStore(args.suite)
+        if args.add:
+            if not args.trace_path:
+                raise SystemExit("--trace-path is required with --add")
+            expect = _eval_expect_dict(args)
+            store.add_case(args.add, trace=args.trace_path, expect=expect)
+            print(f"added: {args.add}")
+            return 0
+        if args.list:
+            for case in store.list_cases():
+                print(f"{case.get('name')} {case.get('trace')}")
+            return 0
+        if args.run:
+            report = store.run()
+            for case in report.cases:
+                status = "passed" if case.report.passed else "failed"
+                print(f"{case.name}: {status}")
+            print(f"passed: {report.passed}")
+            print(f"cases: {report.passed_count}/{report.total}")
+            return 0 if report.passed else 1
+        raise SystemExit("choose one of --add, --list, or --run")
     if args.command == "artifacts":
         config = _merged_config(args)
         store = ArtifactStore(config.artifact_dir)

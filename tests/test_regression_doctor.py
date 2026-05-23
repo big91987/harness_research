@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from harness.doctor import DoctorReport
-from harness.eval import run_golden_suite
+from harness.eval import EvalSuiteStore, run_golden_suite
 from harness.trace import TraceRecorder
 
 
@@ -51,6 +51,24 @@ def test_run_golden_suite_evaluates_multiple_cases(tmp_path: Path) -> None:
     assert report.cases[0].name == "good"
     assert report.cases[0].report.passed
     assert not report.cases[1].report.passed
+
+
+def test_eval_suite_store_adds_and_lists_cases(tmp_path: Path) -> None:
+    suite = tmp_path / "suite.json"
+    store = EvalSuiteStore(suite)
+
+    store.add_case(
+        "smoke",
+        trace="trace.jsonl",
+        expect={
+            "stop_reason": "final_answer",
+            "required_tools": ["write_file"],
+        },
+    )
+
+    cases = store.list_cases()
+    assert cases[0]["name"] == "smoke"
+    assert cases[0]["expect"]["required_tools"] == ["write_file"]
 
 
 def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
@@ -136,3 +154,52 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
     assert "skill_dir: ok" in doctor.stdout
     assert "task_dir: ok" in doctor.stdout
     assert "model_config: warn" in doctor.stdout
+
+
+def test_cli_eval_suite_add_list_and_run(tmp_path: Path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    recorder = TraceRecorder(trace)
+    recorder.record("tool_call", session_id="s1", name="grep", is_error=False)
+    recorder.record("turn_end", session_id="s1", stop_reason="final_answer", final_text="done")
+    suite = tmp_path / "suite.json"
+
+    add = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "eval-suite",
+            str(suite),
+            "--add",
+            "smoke",
+            "--trace-path",
+            str(trace),
+            "--expect-stop-reason",
+            "final_answer",
+            "--require-tool",
+            "grep",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "added: smoke" in add.stdout
+
+    listing = subprocess.run(
+        [sys.executable, "-m", "harness.cli", "eval-suite", str(suite), "--list"],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "smoke" in listing.stdout
+
+    run = subprocess.run(
+        [sys.executable, "-m", "harness.cli", "eval-suite", str(suite), "--run"],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "passed: True" in run.stdout

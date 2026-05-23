@@ -180,6 +180,19 @@ Run a golden trace suite:
 PYTHONPATH=src python3 -m harness.cli golden /tmp/harness-golden.json
 ```
 
+Manage a golden suite incrementally:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json \
+  --add write-file-smoke \
+  --trace-path /tmp/harness-trace.jsonl \
+  --expect-stop-reason final_answer \
+  --require-tool write_file
+
+PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json --list
+PYTHONPATH=src python3 -m harness.cli eval-suite /tmp/harness-golden.json --run
+```
+
 Replay a trace timeline:
 
 ```bash

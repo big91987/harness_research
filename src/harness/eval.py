@@ -38,6 +38,39 @@ class GoldenSuiteReport:
     cases: list[GoldenCaseReport]
 
 
+class EvalSuiteStore:
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path).expanduser().resolve()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.exists():
+            self._write({"cases": []})
+
+    def add_case(self, name: str, *, trace: str, expect: dict) -> dict:
+        data = self._read()
+        cases = [case for case in data.get("cases", []) if case.get("name") != name]
+        case = {
+            "name": name,
+            "trace": trace,
+            "expect": expect,
+        }
+        cases.append(case)
+        data["cases"] = cases
+        self._write(data)
+        return case
+
+    def list_cases(self) -> list[dict]:
+        return list(self._read().get("cases", []))
+
+    def run(self) -> GoldenSuiteReport:
+        return run_golden_suite(self.path)
+
+    def _read(self) -> dict:
+        return json.loads(self.path.read_text(encoding="utf-8"))
+
+    def _write(self, data: dict) -> None:
+        self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def evaluate_trace(path: str | Path, expectation: EvalExpectation) -> EvalReport:
     events = TraceRecorder(path).read_events()
     checks: dict[str, str] = {}

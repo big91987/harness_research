@@ -277,6 +277,22 @@ def test_grep_can_ignore_case_when_requested(tmp_path: Path) -> None:
     assert "a.txt:1:Needle" in insensitive_result.output
 
 
+def test_grep_can_filter_by_file_name_pattern(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "a.py").write_text("needle\n", encoding="utf-8")
+    (tmp_path / "a.md").write_text("needle\n", encoding="utf-8")
+
+    result = tools.get("grep").run(
+        {"query": "needle", "pattern": "*.py"},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert "a.py:1:needle" in result.output
+    assert "a.md" not in result.output
+
+
 def test_grep_rejects_negative_limits(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -514,6 +530,7 @@ def test_tool_registry_describes_tools() -> None:
     assert "max_matches" in registry.describe("grep")["parameters"]["properties"]
     assert "context_lines" in registry.describe("grep")["parameters"]["properties"]
     assert "case_sensitive" in registry.describe("grep")["parameters"]["properties"]
+    assert "pattern" in registry.describe("grep")["parameters"]["properties"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]

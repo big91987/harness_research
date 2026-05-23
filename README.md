@@ -474,7 +474,7 @@ PYTHONPATH=src python3 -m harness.cli tools \
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --call grep \
-  --args-json '{"query":"TODO","path":".","max_matches":20,"context_lines":2,"case_sensitive":false}'
+  --args-json '{"query":"TODO","path":".","pattern":"*.py","max_matches":20,"context_lines":2,"case_sensitive":false}'
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \

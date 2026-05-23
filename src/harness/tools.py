@@ -274,6 +274,7 @@ def _delete_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
 def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     query = str(args["query"])
     base = workspace.resolve(args.get("path") or ".")
+    pattern = args.get("pattern") or "*"
     max_matches = int(args.get("max_matches") or 0)
     context_lines = int(args.get("context_lines") or 0)
     case_sensitive = bool(args.get("case_sensitive", True))
@@ -287,6 +288,8 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     truncated = False
     for path in sorted(base.rglob("*") if base.is_dir() else [base]):
         if not path.is_file():
+            continue
+        if not fnmatch.fnmatch(path.name, pattern):
             continue
         try:
             if b"\x00" in path.read_bytes()[:8192]:
@@ -496,6 +499,7 @@ def default_tool_registry(
                 {
                     "query": {"type": "string"},
                     "path": {"type": "string"},
+                    "pattern": {"type": "string"},
                     "max_matches": {"type": "integer"},
                     "context_lines": {"type": "integer"},
                     "case_sensitive": {"type": "boolean"},

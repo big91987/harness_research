@@ -83,3 +83,40 @@ def test_cli_run_with_mock_tool_script(tmp_path: Path) -> None:
 
     assert "created out.txt" in result.stdout
     assert (workspace / "out.txt").read_text() == "ok"
+
+
+def test_cli_run_uses_config_file(tmp_path: Path) -> None:
+    config = tmp_path / "harness.json"
+    config.write_text(
+        json.dumps(
+            {
+                "workspace": str(tmp_path / "ws"),
+                "session_dir": str(tmp_path / "sessions"),
+                "trace": str(tmp_path / "trace.jsonl"),
+                "memory_dir": str(tmp_path / "memory"),
+                "permission": "read-only",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config),
+            "run",
+            "say hi",
+            "--mock-final",
+            "configured",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert "configured" in result.stdout
+    assert (tmp_path / "trace.jsonl").exists()

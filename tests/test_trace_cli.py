@@ -45,3 +45,49 @@ def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:
     assert "workspace:" in doctor_result.stdout
     assert "tools: 6" in doctor_result.stdout
 
+
+def test_cli_eval_command_passes_and_fails(tmp_path: Path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    recorder = TraceRecorder(trace)
+    recorder.record("tool_call", session_id="s1", name="grep", is_error=False)
+    recorder.record("turn_end", session_id="s1", stop_reason="final_answer", final_text="ok")
+
+    passed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "eval",
+            "--trace",
+            str(trace),
+            "--expect-stop-reason",
+            "final_answer",
+            "--require-tool",
+            "grep",
+            "--max-tool-errors",
+            "0",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert passed.returncode == 0
+    assert "passed: True" in passed.stdout
+
+    failed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "eval",
+            "--trace",
+            str(trace),
+            "--require-tool",
+            "bash",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert failed.returncode == 1
+    assert "passed: False" in failed.stdout

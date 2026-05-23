@@ -2,6 +2,8 @@
 
 __all__ = [
     "context",
+    "config",
+    "eval",
     "kernel",
     "memory",
     "model",
@@ -12,4 +14,3 @@ __all__ = [
     "trace",
     "workspace",
 ]
-

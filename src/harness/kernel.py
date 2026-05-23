@@ -8,7 +8,7 @@ from harness.model import ModelClient
 from harness.permissions import Policy
 from harness.schema import Message, TurnResult
 from harness.session import JsonlSessionStore, Session
-from harness.tools import ToolRegistry
+from harness.tools import ToolRegistry, ToolResult
 from harness.trace import TraceRecorder
 from harness.workspace import Workspace
 
@@ -49,7 +49,14 @@ class AgentKernel:
             prompt_messages.extend(context.prepare(session.messages))
 
             trace.record("model_call", session_id=session.id, iteration=iterations)
-            response = self.model.generate(prompt_messages, self.tools.definitions())
+            try:
+                response = self.model.generate(prompt_messages, self.tools.definitions())
+            except Exception as exc:  # noqa: BLE001 - model failures should become turn state.
+                final_text = f"Model error: {exc}"
+                stop_reason = "model_error"
+                trace.record("model_error", session_id=session.id, iteration=iterations, error=str(exc))
+                session.messages.append(Message.assistant(final_text))
+                break
             trace.record(
                 "model_response",
                 session_id=session.id,
@@ -65,8 +72,11 @@ class AgentKernel:
                 break
 
             for call in response.tool_calls:
-                tool = self.tools.get(call.name)
-                result = tool.run(call.arguments, self.workspace, self.policy)
+                try:
+                    tool = self.tools.get(call.name)
+                    result = tool.run(call.arguments, self.workspace, self.policy)
+                except Exception as exc:  # noqa: BLE001 - tool lookup/runtime errors return to model.
+                    result = ToolResult(str(exc), is_error=True)
                 trace.record(
                     "tool_call",
                     session_id=session.id,
@@ -89,4 +99,3 @@ class AgentKernel:
             final_text=final_text,
         )
         return TurnResult(session.id, final_text, iterations, stop_reason)
-

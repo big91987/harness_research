@@ -65,3 +65,51 @@ def test_kernel_stops_on_final_answer_without_tools(tmp_path: Path) -> None:
     assert result.final_text == "plain answer"
     assert result.iterations == 1
 
+
+def test_kernel_handles_unknown_tool_as_recoverable_tool_error(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    trace = TraceRecorder(tmp_path / "trace.jsonl")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="calling bad tool",
+                tool_calls=[ToolCall(id="call-1", name="missing_tool", arguments={})],
+            ),
+            ModelResponse(content="I saw the tool error."),
+        ]
+    )
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        trace=trace,
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "use bad tool")
+
+    assert result.stop_reason == "final_answer"
+    assert "tool_error" in (tmp_path / "trace.jsonl").read_text()
+
+
+def test_kernel_records_model_error_and_returns_failure(tmp_path: Path) -> None:
+    class BrokenModel(FakeModelClient):
+        def generate(self, messages, tools):  # noqa: ANN001
+            raise RuntimeError("model down")
+
+    workspace = Workspace(tmp_path / "ws")
+    kernel = AgentKernel(
+        model=BrokenModel([]),
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        trace=TraceRecorder(tmp_path / "trace.jsonl"),
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "hi")
+
+    assert result.stop_reason == "model_error"
+    assert "model down" in result.final_text
+    assert '"model_error"' in (tmp_path / "trace.jsonl").read_text()

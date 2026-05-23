@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 
+from harness.config import HarnessConfig
 from harness.context import ContextManager
+from harness.eval import EvalExpectation, evaluate_trace
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
@@ -20,47 +21,56 @@ from harness.workspace import Workspace
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="harness")
+    parser.add_argument("--config", help="Optional JSON config file.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run = subparsers.add_parser("run", help="Run one local agent turn.")
     run.add_argument("prompt")
-    run.add_argument("--workspace", default=".harness/workspace")
-    run.add_argument("--session-dir", default=".harness/sessions")
+    run.add_argument("--workspace")
+    run.add_argument("--session-dir")
     run.add_argument("--session")
-    run.add_argument("--trace", default=".harness/trace.jsonl")
-    run.add_argument("--memory-dir", default=".harness/memory")
-    run.add_argument("--base-url", default=os.environ.get("HARNESS_BASE_URL") or os.environ.get("OPENAI_BASE_URL"))
-    run.add_argument("--api-key", default=os.environ.get("HARNESS_API_KEY") or os.environ.get("OPENAI_API_KEY"))
-    run.add_argument("--model", default=os.environ.get("HARNESS_MODEL") or "gpt-4.1-mini")
-    run.add_argument("--permission", choices=[mode.value for mode in PermissionMode], default=PermissionMode.READ_ONLY.value)
-    run.add_argument("--max-iterations", type=int, default=20)
+    run.add_argument("--trace")
+    run.add_argument("--memory-dir")
+    run.add_argument("--base-url")
+    run.add_argument("--api-key")
+    run.add_argument("--model")
+    run.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
+    run.add_argument("--max-iterations", type=int)
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
 
     subparsers.add_parser("tools", help="List built-in tools.")
 
     sessions = subparsers.add_parser("sessions", help="List local sessions.")
-    sessions.add_argument("--session-dir", default=".harness/sessions")
+    sessions.add_argument("--session-dir")
 
     memory = subparsers.add_parser("memory", help="Add or search local markdown memory.")
-    memory.add_argument("--memory-dir", default=".harness/memory")
+    memory.add_argument("--memory-dir")
     memory.add_argument("--add")
     memory.add_argument("--search")
 
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
-    trace.add_argument("--trace", default=".harness/trace.jsonl")
+    trace.add_argument("--trace")
+
+    eval_cmd = subparsers.add_parser("eval", help="Evaluate a trace JSONL file.")
+    eval_cmd.add_argument("--trace")
+    eval_cmd.add_argument("--expect-stop-reason")
+    eval_cmd.add_argument("--max-tool-errors", type=int)
+    eval_cmd.add_argument("--require-tool", action="append", default=[])
+    eval_cmd.add_argument("--final-text-contains")
 
     doctor = subparsers.add_parser("doctor", help="Print local harness diagnostics.")
-    doctor.add_argument("--workspace", default=".harness/workspace")
-    doctor.add_argument("--session-dir", default=".harness/sessions")
-    doctor.add_argument("--memory-dir", default=".harness/memory")
+    doctor.add_argument("--workspace")
+    doctor.add_argument("--session-dir")
+    doctor.add_argument("--memory-dir")
 
     return parser
 
 
 def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
-    workspace = Workspace(args.workspace)
-    store = JsonlSessionStore(args.session_dir)
+    config = _merged_config(args)
+    workspace = Workspace(config.workspace)
+    store = JsonlSessionStore(config.session_dir)
     session = store.load(args.session) if args.session else None
     if session is None:
         session = Session.new(workspace=str(workspace.root))
@@ -70,22 +80,46 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         model = FakeModelClient([ModelResponse(content=args.mock_final)])
     else:
         model = OpenAICompatibleModelClient(
-            base_url=_require(args.base_url, "--base-url or HARNESS_BASE_URL"),
-            api_key=_require(args.api_key, "--api-key or HARNESS_API_KEY"),
-            model=args.model,
+            base_url=_require(config.base_url, "--base-url, config base_url, or HARNESS_BASE_URL"),
+            api_key=_require(config.api_key, "--api-key, config api_key, or HARNESS_API_KEY"),
+            model=config.model,
         )
     kernel = AgentKernel(
         model=model,
         tools=default_tool_registry(),
         store=store,
         workspace=workspace,
-        policy=Policy(PermissionMode(args.permission)),
+        policy=Policy(PermissionMode(config.permission), approval_callback=_approval_callback),
         context=ContextManager(),
-        trace=TraceRecorder(args.trace),
-        memory=MarkdownMemoryStore(args.memory_dir),
-        max_iterations=args.max_iterations,
+        trace=TraceRecorder(config.trace),
+        memory=MarkdownMemoryStore(config.memory_dir),
+        max_iterations=config.max_iterations,
     )
     return kernel, session
+
+
+def _merged_config(args: argparse.Namespace) -> HarnessConfig:
+    config = HarnessConfig.load(getattr(args, "config", None))
+    for attr in (
+        "workspace",
+        "session_dir",
+        "trace",
+        "memory_dir",
+        "base_url",
+        "api_key",
+        "model",
+        "permission",
+        "max_iterations",
+    ):
+        value = getattr(args, attr, None)
+        if value is not None:
+            setattr(config, attr, value)
+    return config
+
+
+def _approval_callback(action: str, required: PermissionMode) -> bool:
+    answer = input(f"Approve {action} requiring {required.value}? [y/N] ")
+    return answer.strip().lower() in {"y", "yes"}
 
 
 def _require(value: str | None, label: str) -> str:
@@ -130,11 +164,13 @@ def main(argv: list[str] | None = None) -> int:
             print(name)
         return 0
     if args.command == "sessions":
-        for session_id in JsonlSessionStore(args.session_dir).list():
+        config = _merged_config(args)
+        for session_id in JsonlSessionStore(config.session_dir).list():
             print(session_id)
         return 0
     if args.command == "memory":
-        memory = MarkdownMemoryStore(args.memory_dir)
+        config = _merged_config(args)
+        memory = MarkdownMemoryStore(config.memory_dir)
         if args.add:
             memory.add(args.add)
             print("added")
@@ -145,21 +181,38 @@ def main(argv: list[str] | None = None) -> int:
             print(memory.render_context())
         return 0
     if args.command == "trace":
-        summary = TraceRecorder(args.trace).summary()
+        config = _merged_config(args)
+        summary = TraceRecorder(config.trace).summary()
         for key, value in summary.items():
             print(f"{key}: {value}")
         return 0
+    if args.command == "eval":
+        config = _merged_config(args)
+        report = evaluate_trace(
+            config.trace,
+            EvalExpectation(
+                stop_reason=args.expect_stop_reason,
+                max_tool_errors=args.max_tool_errors,
+                required_tools=args.require_tool,
+                final_text_contains=args.final_text_contains,
+            ),
+        )
+        for key, value in report.checks.items():
+            print(f"{key}: {value}")
+        print(f"passed: {report.passed}")
+        return 0 if report.passed else 1
     if args.command == "doctor":
-        workspace = Workspace(args.workspace)
-        session_store = JsonlSessionStore(args.session_dir)
-        memory_store = MarkdownMemoryStore(args.memory_dir)
+        config = _merged_config(args)
+        workspace = Workspace(config.workspace)
+        session_store = JsonlSessionStore(config.session_dir)
+        memory_store = MarkdownMemoryStore(config.memory_dir)
         tools = default_tool_registry()
         print(f"workspace: {workspace.root}")
         print(f"session_dir: {session_store.root}")
         print(f"memory_file: {memory_store.path}")
         print(f"tools: {len(tools.names())}")
-        print(f"base_url_configured: {bool(os.environ.get('HARNESS_BASE_URL') or os.environ.get('OPENAI_BASE_URL'))}")
-        print(f"api_key_configured: {bool(os.environ.get('HARNESS_API_KEY') or os.environ.get('OPENAI_API_KEY'))}")
+        print(f"base_url_configured: {bool(config.base_url)}")
+        print(f"api_key_configured: {bool(config.api_key)}")
         return 0
     parser.error(f"unknown command {args.command}")
     return 2

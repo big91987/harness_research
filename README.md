@@ -30,6 +30,8 @@ Implemented modules:
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
 - `harness.trace`: JSONL trajectory/trace events.
+- `harness.config`: JSON config loading with environment overrides.
+- `harness.eval`: simple trace-based regression checks.
 
 ## Run Tests
 
@@ -59,6 +61,47 @@ PYTHONPATH=src python3 -m harness.cli run "create file" \
   --permission workspace-write \
   --mock-responses /path/to/responses.json
 ```
+
+Config-driven run:
+
+```json
+{
+  "workspace": "/tmp/harness-ws",
+  "session_dir": "/tmp/harness-sessions",
+  "trace": "/tmp/harness-trace.jsonl",
+  "memory_dir": "/tmp/harness-memory",
+  "permission": "workspace-write"
+}
+```
+
+```bash
+PYTHONPATH=src python3 -m harness.cli --config /tmp/harness.json run "create file" \
+  --mock-responses /path/to/responses.json
+```
+
+## Diagnostics, Trace, Eval
+
+```bash
+PYTHONPATH=src python3 -m harness.cli doctor
+PYTHONPATH=src python3 -m harness.cli trace --trace /tmp/harness-trace.jsonl
+PYTHONPATH=src python3 -m harness.cli eval \
+  --trace /tmp/harness-trace.jsonl \
+  --expect-stop-reason final_answer \
+  --require-tool write_file \
+  --max-tool-errors 0
+```
+
+`prompt` permission mode asks for approval before mutating or dangerous tools:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli run "edit file" --permission prompt
+```
+
+Kernel failure behavior:
+
+- Unknown tools are converted into tool-result errors and returned to the model.
+- Model failures are recorded in trace and end the turn with `model_error`.
+- Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 
 `responses.json`:
 
@@ -103,4 +146,3 @@ The server should wrap the same local modules instead of creating a second runti
 - Approval broker for `prompt` mode.
 - Trace/replay endpoints for `TraceRecorder`.
 - Tool and memory management APIs.
-

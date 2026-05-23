@@ -16,6 +16,7 @@ CLI
   -> SessionStore
   -> TraceRecorder
   -> MarkdownMemoryStore
+  -> SkillStore
 ```
 
 Implemented modules:
@@ -29,6 +30,7 @@ Implemented modules:
 - `harness.session`: JSONL session persistence.
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
+- `harness.skills`: Markdown-backed skill registry, search, and prompt injection.
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
 - `harness.cost`: canonical usage normalization and model cost estimation.
@@ -119,6 +121,7 @@ Config-driven run:
   "session_dir": "/tmp/harness-sessions",
   "trace": "/tmp/harness-trace.jsonl",
   "memory_dir": "/tmp/harness-memory",
+  "skill_dir": "/tmp/harness-skills",
   "permission": "workspace-write",
   "input_cost_per_million_tokens": 0.0,
   "output_cost_per_million_tokens": 0.0,
@@ -209,6 +212,23 @@ Inspect audit events:
 PYTHONPATH=src python3 -m harness.cli audit --audit /tmp/harness-audit.jsonl
 ```
 
+Add and inspect local skills:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli skills \
+  --skill-dir /tmp/harness-skills \
+  --add pytest-debug \
+  --description "Debug Python tests" \
+  --body "Run focused pytest checks before broad verification."
+
+PYTHONPATH=src python3 -m harness.cli skills \
+  --skill-dir /tmp/harness-skills \
+  --search python
+```
+
+Skills are stored as Markdown files and injected into the model context when they
+match the current user request.
+
 Doctor checks local writability and harness readiness:
 
 ```bash
@@ -273,6 +293,7 @@ Kernel failure behavior:
 - Invalid model tool-call arguments produce explicit protocol errors instead of obscure JSON failures.
 - Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
 - Session state also aggregates estimated cost when model pricing is configured.
+- Relevant Markdown skills are injected into the system context for each turn.
 - Runtime budget overruns stop the turn before additional tool calls execute.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
@@ -321,4 +342,4 @@ The server should wrap the same local modules instead of creating a second runti
 - Session routing and agent registry on top of `JsonlSessionStore`.
 - Approval broker for `prompt` mode.
 - Trace/replay endpoints for `TraceRecorder`.
-- Tool and memory management APIs.
+- Tool, skill, and memory management APIs.

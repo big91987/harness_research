@@ -10,6 +10,7 @@ from harness.model import ModelClient
 from harness.permissions import Policy
 from harness.schema import Message, TurnResult
 from harness.session import JsonlSessionStore, Session
+from harness.skills import SkillStore
 from harness.tools import ToolRegistry, ToolResult
 from harness.trace import TraceRecorder
 from harness.workspace import Workspace
@@ -31,6 +32,7 @@ class AgentKernel:
     trace: TraceRecorder | None = None
     audit: AuditLog | None = None
     memory: MarkdownMemoryStore | None = None
+    skills: SkillStore | None = None
     pricing: ModelPricing = ModelPricing()
     budget: RuntimeBudget = RuntimeBudget()
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
@@ -52,6 +54,10 @@ class AgentKernel:
                 memory_context = self.memory.render_context()
                 if memory_context:
                     prompt_messages.append(Message.system(memory_context))
+            if self.skills:
+                skill_context = self.skills.render_context(user_input)
+                if skill_context:
+                    prompt_messages.append(Message.system(skill_context))
             prompt_messages.extend(context.prepare(session.messages))
 
             trace.record("model_call", session_id=session.id, iteration=iterations)

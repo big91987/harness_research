@@ -196,3 +196,66 @@ def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     assert "usage_total_tokens:" in show.stdout
     assert "cost_usd:" in show.stdout
     assert "last_assistant: two" in show.stdout
+
+
+def test_cli_skills_add_search_and_render(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    skill_dir = tmp_path / "skills"
+
+    add = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "skills",
+            "--skill-dir",
+            str(skill_dir),
+            "--add",
+            "pytest-debug",
+            "--description",
+            "Debug Python tests",
+            "--body",
+            "Run pytest -q before broad checks.",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "added: pytest-debug" in add.stdout
+
+    search = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "skills",
+            "--skill-dir",
+            str(skill_dir),
+            "--search",
+            "python",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "pytest-debug: Debug Python tests" in search.stdout
+
+    render = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "skills",
+            "--skill-dir",
+            str(skill_dir),
+            "--query",
+            "debug python",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "Available skills:" in render.stdout

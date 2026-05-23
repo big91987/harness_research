@@ -20,6 +20,7 @@ from harness.scaffold import scaffold_project
 from harness.schema import ModelResponse
 from harness.schema import ToolCall
 from harness.session import JsonlSessionStore, Session
+from harness.skills import SkillStore
 from harness.tools import default_tool_registry
 from harness.trace import TraceRecorder
 from harness.verify import VerifyOptions, run_verify
@@ -40,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--audit")
     run.add_argument("--artifact-dir")
     run.add_argument("--memory-dir")
+    run.add_argument("--skill-dir")
     run.add_argument("--base-url")
     run.add_argument("--api-key")
     run.add_argument("--model")
@@ -60,6 +62,15 @@ def build_parser() -> argparse.ArgumentParser:
     memory.add_argument("--memory-dir")
     memory.add_argument("--add")
     memory.add_argument("--search")
+
+    skills = subparsers.add_parser("skills", help="Add, search, or render local markdown skills.")
+    skills.add_argument("--skill-dir")
+    skills.add_argument("--add")
+    skills.add_argument("--description", default="")
+    skills.add_argument("--body")
+    skills.add_argument("--body-file")
+    skills.add_argument("--search")
+    skills.add_argument("--query")
 
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
     trace.add_argument("--trace")
@@ -99,6 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--workspace")
     doctor.add_argument("--session-dir")
     doctor.add_argument("--memory-dir")
+    doctor.add_argument("--skill-dir")
 
     verify = subparsers.add_parser("verify", help="Run local verification gates.")
     verify.add_argument("--work-dir", default=".harness/verify")
@@ -152,6 +164,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         trace=TraceRecorder(config.trace),
         audit=AuditLog(config.audit),
         memory=MarkdownMemoryStore(config.memory_dir),
+        skills=SkillStore(config.skill_dir),
         pricing=ModelPricing(
             input_cost_per_million_tokens=config.input_cost_per_million_tokens,
             output_cost_per_million_tokens=config.output_cost_per_million_tokens,
@@ -174,6 +187,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "audit",
         "artifact_dir",
         "memory_dir",
+        "skill_dir",
         "base_url",
         "api_key",
         "model",
@@ -275,6 +289,26 @@ def main(argv: list[str] | None = None) -> int:
         if not args.add and not args.search:
             print(memory.render_context())
         return 0
+    if args.command == "skills":
+        config = _merged_config(args)
+        skills = SkillStore(config.skill_dir)
+        if args.add:
+            body = args.body
+            if args.body_file:
+                body = Path(args.body_file).read_text(encoding="utf-8")
+            if body is None:
+                raise SystemExit("--body or --body-file is required with --add")
+            path = skills.add(args.add, body, description=args.description)
+            print(f"added: {path.stem}")
+            print(f"path: {path}")
+            return 0
+        if args.search:
+            for skill in skills.search(args.search):
+                suffix = f": {skill.description}" if skill.description else ""
+                print(f"{skill.name}{suffix}")
+            return 0
+        print(skills.render_context(args.query or ""))
+        return 0
     if args.command == "trace":
         config = _merged_config(args)
         summary = TraceRecorder(config.trace).summary()
@@ -369,6 +403,7 @@ def main(argv: list[str] | None = None) -> int:
             workspace=config.workspace,
             session_dir=config.session_dir,
             memory_dir=config.memory_dir,
+            skill_dir=config.skill_dir,
             trace=config.trace,
             audit=config.audit,
             artifact_dir=config.artifact_dir,

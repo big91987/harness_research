@@ -15,6 +15,7 @@ class HarnessConfig:
     audit: str = ".harness/audit.jsonl"
     artifact_dir: str = ".harness/artifacts"
     memory_dir: str = ".harness/memory"
+    skill_dir: str = ".harness/skills"
     base_url: str | None = None
     api_key: str | None = None
     model: str = "gpt-4.1-mini"
@@ -50,6 +51,7 @@ class HarnessConfig:
             "HARNESS_AUDIT": "audit",
             "HARNESS_ARTIFACT_DIR": "artifact_dir",
             "HARNESS_MEMORY_DIR": "memory_dir",
+            "HARNESS_SKILL_DIR": "skill_dir",
             "HARNESS_BASE_URL": "base_url",
             "OPENAI_BASE_URL": "base_url",
             "HARNESS_API_KEY": "api_key",

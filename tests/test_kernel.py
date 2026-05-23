@@ -7,6 +7,7 @@ from harness.model import FakeModelClient
 from harness.permissions import PermissionMode, Policy
 from harness.schema import ModelResponse, ToolCall
 from harness.session import JsonlSessionStore, Session
+from harness.skills import SkillStore
 from harness.tools import default_tool_registry
 from harness.trace import TraceRecorder
 from harness.workspace import Workspace
@@ -219,6 +220,35 @@ def test_kernel_stops_before_tools_when_runtime_budget_is_exceeded(tmp_path: Pat
     trace_text = (tmp_path / "trace.jsonl").read_text()
     assert '"budget_exceeded"' in trace_text
     assert '"tool_call"' not in trace_text
+
+
+def test_kernel_injects_relevant_skill_context(tmp_path: Path) -> None:
+    class CapturingModel(FakeModelClient):
+        captured = []
+
+        def generate(self, messages, tools):  # noqa: ANN001
+            self.captured = messages
+            return super().generate(messages, tools)
+
+    workspace = Workspace(tmp_path / "ws")
+    skills = SkillStore(tmp_path / "skills")
+    skills.add("pytest-debug", "Run focused pytest checks first.", description="Debug Python tests")
+    model = CapturingModel([ModelResponse(content="ok")])
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        skills=skills,
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "debug python tests")
+
+    assert result.stop_reason == "final_answer"
+    system_text = "\n".join(message.content for message in model.captured if message.role == "system")
+    assert "Available skills:" in system_text
+    assert "pytest-debug" in system_text
 
 
 def test_kernel_policy_denies_disallowed_tool_and_audits(tmp_path: Path) -> None:

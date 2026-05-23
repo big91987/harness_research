@@ -15,6 +15,7 @@ def test_scaffold_project_writes_config_and_samples(tmp_path: Path) -> None:
     assert result.golden_path.exists()
     config = json.loads(result.config_path.read_text(encoding="utf-8"))
     assert config["workspace"].endswith("workspace")
+    assert config["skill_dir"].endswith("skills")
     responses = json.loads(result.mock_responses_path.read_text(encoding="utf-8"))
     assert responses[0]["tool_calls"][0]["name"] == "write_file"
 
@@ -50,4 +51,3 @@ def test_cli_init_outputs_runnable_project(tmp_path: Path) -> None:
     )
     assert "created sample.txt" in run.stdout
     assert (tmp_path / "workspace" / "sample.txt").read_text(encoding="utf-8") == "hello from harness"
-

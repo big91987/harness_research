@@ -19,9 +19,10 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
     workspace = root_path / "workspace"
     sessions = root_path / "sessions"
     memory = root_path / "memory"
+    skills = root_path / "skills"
     artifacts = root_path / "artifacts"
     root_path.mkdir(parents=True, exist_ok=True)
-    for directory in (samples, workspace, sessions, memory, artifacts):
+    for directory in (samples, workspace, sessions, memory, skills, artifacts):
         directory.mkdir(parents=True, exist_ok=True)
 
     config_path = root_path / "harness.json"
@@ -37,6 +38,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "audit": str(root_path / "audit.jsonl"),
             "artifact_dir": str(artifacts),
             "memory_dir": str(memory),
+            "skill_dir": str(skills),
             "permission": "workspace-write",
             "denied_tools": ["bash"],
             "max_output_chars": 20000,

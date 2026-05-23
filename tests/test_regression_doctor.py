@@ -58,6 +58,7 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
         workspace=tmp_path / "ws",
         session_dir=tmp_path / "sessions",
         memory_dir=tmp_path / "memory",
+        skill_dir=tmp_path / "skills",
         trace=tmp_path / "trace.jsonl",
         audit=tmp_path / "audit.jsonl",
         artifact_dir=tmp_path / "artifacts",
@@ -68,6 +69,7 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
 
     assert report.ok
     assert report.checks["workspace"].ok
+    assert report.checks["skill_dir"].ok
     assert report.checks["model_config"].ok is False
     assert "api key" in report.checks["model_config"].message
 
@@ -118,6 +120,8 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
             str(tmp_path / "sessions"),
             "--memory-dir",
             str(tmp_path / "memory"),
+            "--skill-dir",
+            str(tmp_path / "skills"),
         ],
         check=True,
         text=True,
@@ -125,5 +129,5 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
         env={**os.environ, "PYTHONPATH": "src"},
     )
     assert "workspace: ok" in doctor.stdout
+    assert "skill_dir: ok" in doctor.stdout
     assert "model_config: warn" in doctor.stdout
-

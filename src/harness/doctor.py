@@ -26,6 +26,7 @@ class DoctorReport:
         workspace: str | Path,
         session_dir: str | Path,
         memory_dir: str | Path,
+        skill_dir: str | Path,
         trace: str | Path,
         audit: str | Path,
         artifact_dir: str | Path,
@@ -38,6 +39,7 @@ class DoctorReport:
             ("workspace", workspace, False),
             ("session_dir", session_dir, False),
             ("memory_dir", memory_dir, False),
+            ("skill_dir", skill_dir, False),
             ("trace", trace, True),
             ("audit", audit, True),
             ("artifact_dir", artifact_dir, False),
@@ -61,4 +63,3 @@ def _check_path(path: Path, *, is_file: bool) -> DoctorCheck:
     except OSError as exc:
         return DoctorCheck(False, f"{path}: not writable: {exc}", "error")
     return DoctorCheck(True, f"{path}: writable")
-

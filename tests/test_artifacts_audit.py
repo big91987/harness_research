@@ -63,6 +63,22 @@ def test_audit_query_filters_events(tmp_path: Path) -> None:
     assert events[0]["session_id"] == "s2"
 
 
+def test_audit_query_summarizes_events(tmp_path: Path) -> None:
+    audit = AuditLog(tmp_path / "audit.jsonl")
+    audit.record("tool_call", session_id="s1", actor="agent", action="read_file", allowed=True)
+    audit.record("tool_call", session_id="s1", actor="agent", action="bash", allowed=False)
+    audit.record("approval", actor="user", action="bash", allowed=False)
+    audit.record("policy_denial", actor="policy", action="write_file", allowed=False)
+
+    summary = AuditQuery(audit).summary()
+
+    assert summary["events"] == 4
+    assert summary["allowed"] == 1
+    assert summary["denied"] == 3
+    assert summary["by_type"] == {"approval": 1, "policy_denial": 1, "tool_call": 2}
+    assert summary["by_action"]["bash"] == 2
+
+
 def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     workspace.mkdir()
@@ -157,3 +173,30 @@ def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
         env={**os.environ, "PYTHONPATH": "src"},
     )
     assert '"type": "tool_call"' in audit_json.stdout
+
+
+def test_cli_audit_summary(tmp_path: Path) -> None:
+    audit_path = tmp_path / "audit.jsonl"
+    audit = AuditLog(audit_path)
+    audit.record("tool_call", session_id="s1", actor="agent", action="read_file", allowed=True)
+    audit.record("policy_denial", actor="policy", action="bash", allowed=False)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "audit",
+            "--audit",
+            str(audit_path),
+            "--summary",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert "events: 2" in result.stdout
+    assert "denied: 1" in result.stdout
+    assert "action.bash: 1" in result.stdout

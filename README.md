@@ -313,6 +313,10 @@ PYTHONPATH=src python3 -m harness.cli audit \
   --type tool_call \
   --allowed false \
   --json
+
+PYTHONPATH=src python3 -m harness.cli audit \
+  --audit /tmp/harness-audit.jsonl \
+  --summary
 ```
 
 Add and inspect local skills:

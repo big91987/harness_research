@@ -158,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--action")
     audit.add_argument("--allowed", choices=["true", "false"])
     audit.add_argument("--limit", type=int)
+    audit.add_argument("--summary", action="store_true")
     audit.add_argument("--json", action="store_true")
 
     replay = subparsers.add_parser("replay", help="Print trace events as a compact timeline.")
@@ -659,6 +660,24 @@ def main(argv: list[str] | None = None) -> int:
         config = _merged_config(args)
         query = AuditQuery(AuditLog(config.audit))
         allowed = None if args.allowed is None else args.allowed == "true"
+        if args.summary:
+            summary = query.summary(
+                session_id=args.session,
+                event_type=args.event_type,
+                action=args.action,
+                allowed=allowed,
+            )
+            if args.json:
+                print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            print(f"events: {summary['events']}")
+            print(f"allowed: {summary['allowed']}")
+            print(f"denied: {summary['denied']}")
+            for event_type, count in summary["by_type"].items():
+                print(f"type.{event_type}: {count}")
+            for action, count in summary["by_action"].items():
+                print(f"action.{action}: {count}")
+            return 0
         events = query.events(
             session_id=args.session,
             event_type=args.event_type,

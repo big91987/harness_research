@@ -55,3 +55,35 @@ class AuditQuery:
         if limit is not None:
             events = events[-limit:]
         return events
+
+    def summary(
+        self,
+        *,
+        session_id: str | None = None,
+        event_type: str | None = None,
+        action: str | None = None,
+        allowed: bool | None = None,
+    ) -> dict[str, Any]:
+        events = self.events(session_id=session_id, event_type=event_type, action=action, allowed=allowed)
+        by_type: dict[str, int] = {}
+        by_action: dict[str, int] = {}
+        allowed_count = 0
+        denied_count = 0
+        for event in events:
+            event_type_value = str(event.get("type") or "<unknown>")
+            by_type[event_type_value] = by_type.get(event_type_value, 0) + 1
+            action_value = event.get("action")
+            if action_value:
+                action_key = str(action_value)
+                by_action[action_key] = by_action.get(action_key, 0) + 1
+            if event.get("allowed") is True:
+                allowed_count += 1
+            elif event.get("allowed") is False:
+                denied_count += 1
+        return {
+            "events": len(events),
+            "allowed": allowed_count,
+            "denied": denied_count,
+            "by_type": dict(sorted(by_type.items())),
+            "by_action": dict(sorted(by_action.items())),
+        }

@@ -70,6 +70,7 @@ def test_cli_run_can_emit_json_result(tmp_path: Path) -> None:
     assert payload["stop_reason"] == "final_answer"
     assert payload["iterations"] == 1
     assert payload["session_id"]
+    assert payload["turn_id"]
 
 
 def test_cli_run_with_mock_tool_script(tmp_path: Path) -> None:

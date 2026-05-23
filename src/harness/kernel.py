@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import uuid4
 
 from harness.audit import AuditLog
 from harness.context import ContextManager
@@ -44,12 +45,13 @@ class AgentKernel:
     fail_fast_on_tool_error: bool = False
 
     def run_turn(self, session: Session, user_input: str) -> TurnResult:
+        turn_id = uuid4().hex
         trace = self.trace or TraceRecorder()
         audit = self.audit or AuditLog()
         context = self.context or ContextManager()
         session.messages.append(Message.user(user_input))
-        trace.record("turn_start", session_id=session.id, user_input=user_input)
-        self._run_hooks(trace, "turn_start", {"session_id": session.id, "user_input": user_input})
+        trace.record("turn_start", session_id=session.id, turn_id=turn_id, user_input=user_input)
+        self._run_hooks(trace, "turn_start", {"session_id": session.id, "turn_id": turn_id, "user_input": user_input})
         final_text = ""
         iterations = 0
         stop_reason = "max_iterations"
@@ -68,19 +70,20 @@ class AgentKernel:
                 prompt_messages.append(Message.system(self.task_context))
             prompt_messages.extend(context.prepare(session.messages))
 
-            trace.record("model_call", session_id=session.id, iteration=iterations)
+            trace.record("model_call", session_id=session.id, turn_id=turn_id, iteration=iterations)
             try:
-                response = self._generate_with_retries(trace, session.id, iterations, prompt_messages)
+                response = self._generate_with_retries(trace, session.id, turn_id, iterations, prompt_messages)
             except Exception as exc:  # noqa: BLE001 - model failures should become turn state.
                 final_text = f"Model error: {exc}"
                 stop_reason = "model_error"
-                trace.record("model_error", session_id=session.id, iteration=iterations, error=str(exc))
+                trace.record("model_error", session_id=session.id, turn_id=turn_id, iteration=iterations, error=str(exc))
                 session.messages.append(Message.assistant(final_text))
                 break
             cost_usd = self._record_usage(session, response.usage)
             trace.record(
                 "model_response",
                 session_id=session.id,
+                turn_id=turn_id,
                 iteration=iterations,
                 tool_calls=len(response.tool_calls),
                 usage=response.usage,
@@ -96,6 +99,7 @@ class AgentKernel:
                 trace.record(
                     "budget_exceeded",
                     session_id=session.id,
+                    turn_id=turn_id,
                     iteration=iterations,
                     reason=budget_error,
                     usage=session.usage,
@@ -119,6 +123,7 @@ class AgentKernel:
                 trace.record(
                     "tool_call",
                     session_id=session.id,
+                    turn_id=turn_id,
                     name=call.name,
                     arguments=call.arguments,
                     is_error=result.is_error,
@@ -126,6 +131,7 @@ class AgentKernel:
                 audit.record(
                     "tool_call",
                     session_id=session.id,
+                    turn_id=turn_id,
                     actor="agent",
                     action=call.name,
                     allowed=not result.is_error,
@@ -136,17 +142,19 @@ class AgentKernel:
                     "tool_call",
                     {
                         "session_id": session.id,
+                        "turn_id": turn_id,
                         "name": call.name,
                         "is_error": result.is_error,
                     },
                 )
                 session.messages.append(Message.tool(call.id, call.name, result.output))
                 if result.is_error:
-                    trace.record("tool_error", session_id=session.id, name=call.name, output=result.output)
+                    trace.record("tool_error", session_id=session.id, turn_id=turn_id, name=call.name, output=result.output)
                     if self.fail_fast_on_tool_error:
                         trace.record(
                             "tool_batch_aborted",
                             session_id=session.id,
+                            turn_id=turn_id,
                             name=call.name,
                             reason="tool_error",
                         )
@@ -158,6 +166,7 @@ class AgentKernel:
         trace.record(
             "turn_end",
             session_id=session.id,
+            turn_id=turn_id,
             iterations=iterations,
             stop_reason=stop_reason,
             final_text=final_text,
@@ -167,12 +176,13 @@ class AgentKernel:
             "turn_end",
             {
                 "session_id": session.id,
+                "turn_id": turn_id,
                 "iterations": iterations,
                 "stop_reason": stop_reason,
                 "final_text": final_text,
             },
         )
-        return TurnResult(session.id, final_text, iterations, stop_reason)
+        return TurnResult(session.id, final_text, iterations, stop_reason, turn_id=turn_id)
 
     def _record_usage(self, session: Session, usage: dict) -> float:
         tokens = canonical_usage(usage)
@@ -186,6 +196,7 @@ class AgentKernel:
         self,
         trace: TraceRecorder,
         session_id: str,
+        turn_id: str,
         iteration: int,
         prompt_messages: list[Message],
     ) -> ModelResponse:
@@ -201,6 +212,7 @@ class AgentKernel:
                 trace.record(
                     "model_retry",
                     session_id=session_id,
+                    turn_id=turn_id,
                     iteration=iteration,
                     attempt=attempt,
                     max_attempts=attempts,
@@ -215,6 +227,8 @@ class AgentKernel:
         for result in self.hooks.run(event_type, payload):
             trace.record(
                 "hook_result",
+                session_id=payload.get("session_id"),
+                turn_id=payload.get("turn_id"),
                 event=result.event,
                 command=result.command,
                 returncode=result.returncode,

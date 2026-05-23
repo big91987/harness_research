@@ -92,3 +92,4 @@ class TurnResult:
     final_text: str
     iterations: int
     stop_reason: str
+    turn_id: str = field(default_factory=lambda: uuid4().hex)

@@ -145,6 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
     trace.add_argument("--trace")
     trace.add_argument("--session")
+    trace.add_argument("--turn")
     trace.add_argument("--type", dest="event_type")
     trace.add_argument("--limit", type=int)
     trace.add_argument("--sessions", action="store_true")
@@ -518,6 +519,7 @@ def main(argv: list[str] | None = None) -> int:
                     {
                         "final_text": result.final_text,
                         "session_id": result.session_id,
+                        "turn_id": result.turn_id,
                         "iterations": result.iterations,
                         "stop_reason": result.stop_reason,
                         "checkpoint_id": checkpoint.id if checkpoint is not None else None,
@@ -805,14 +807,21 @@ def main(argv: list[str] | None = None) -> int:
                 )
             return 0
         if args.json:
-            print(json.dumps(
-                query.events(session_id=args.session, event_type=args.event_type, limit=args.limit),
-                ensure_ascii=False,
-                indent=2,
-                sort_keys=True,
-            ))
+            print(
+                json.dumps(
+                    query.events(
+                        session_id=args.session,
+                        turn_id=args.turn,
+                        event_type=args.event_type,
+                        limit=args.limit,
+                    ),
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
             return 0
-        summary = query.summary(session_id=args.session, event_type=args.event_type)
+        summary = query.summary(session_id=args.session, turn_id=args.turn, event_type=args.event_type)
         for key, value in summary.items():
             print(f"{key}: {value}")
         return 0

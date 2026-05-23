@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from harness.audit import AuditLog
 from harness.cost import ModelPricing, RuntimeBudget
@@ -57,11 +58,13 @@ def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
     result = kernel.run_turn(session, "create answer")
 
     assert result.final_text == "done"
+    assert result.turn_id
     assert session.usage["prompt_tokens"] == 0
     assert session.usage["total_tokens"] == 0
     assert (workspace.root / "answer.txt").read_text() == "42"
     assert store.load(session.id) is not None
     trace_text = (tmp_path / "trace.jsonl").read_text()
+    assert f'"turn_id": "{result.turn_id}"' in trace_text
     assert '"model_call"' in trace_text
     assert '"tool_call"' in trace_text
     audit_text = (tmp_path / "audit.jsonl").read_text()
@@ -87,7 +90,13 @@ def test_kernel_emits_lifecycle_hooks(tmp_path: Path) -> None:
     event_types = [event_type for event_type, _ in hooks.events]
     assert event_types == ["turn_start", "turn_end"]
     assert hooks.events[-1][1]["stop_reason"] == "final_answer"
-    assert '"hook_result"' in (tmp_path / "trace.jsonl").read_text()
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "trace.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    hook_results = [event for event in events if event["type"] == "hook_result"]
+    assert hook_results
+    assert all(event["turn_id"] == result.turn_id for event in hook_results)
 
 
 def test_kernel_stops_on_final_answer_without_tools(tmp_path: Path) -> None:

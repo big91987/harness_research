@@ -37,18 +37,18 @@ def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
 def test_trace_query_filters_by_session_type_and_limit(tmp_path: Path) -> None:
     path = tmp_path / "trace.jsonl"
     trace = TraceRecorder(path)
-    trace.record("turn_start", session_id="s1")
-    trace.record("tool_call", session_id="s1", name="read_file", is_error=False)
-    trace.record("tool_call", session_id="s2", name="bash", is_error=True)
-    trace.record("turn_end", session_id="s1", stop_reason="final_answer")
+    trace.record("turn_start", session_id="s1", turn_id="t1")
+    trace.record("tool_call", session_id="s1", turn_id="t1", name="read_file", is_error=False)
+    trace.record("tool_call", session_id="s1", turn_id="t2", name="bash", is_error=True)
+    trace.record("turn_end", session_id="s1", turn_id="t1", stop_reason="final_answer")
 
-    events = TraceQuery(TraceRecorder(path)).events(session_id="s1", event_type="tool_call", limit=1)
+    events = TraceQuery(TraceRecorder(path)).events(session_id="s1", turn_id="t1", event_type="tool_call", limit=1)
     summary = TraceQuery(TraceRecorder(path)).summary(session_id="s1")
 
     assert len(events) == 1
     assert events[0]["name"] == "read_file"
-    assert summary["events"] == 3
-    assert summary["tool_errors"] == 0
+    assert summary["events"] == 4
+    assert summary["tool_errors"] == 1
 
 
 def test_trace_query_summarizes_sessions(tmp_path: Path) -> None:
@@ -99,8 +99,8 @@ def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:
 def test_cli_trace_can_filter_and_emit_json(tmp_path: Path) -> None:
     trace = tmp_path / "trace.jsonl"
     recorder = TraceRecorder(trace)
-    recorder.record("tool_call", session_id="s1", name="read_file", is_error=False)
-    recorder.record("tool_call", session_id="s2", name="bash", is_error=True)
+    recorder.record("tool_call", session_id="s1", turn_id="t1", name="read_file", is_error=False)
+    recorder.record("tool_call", session_id="s1", turn_id="t2", name="bash", is_error=True)
 
     result = subprocess.run(
         [
@@ -112,6 +112,8 @@ def test_cli_trace_can_filter_and_emit_json(tmp_path: Path) -> None:
             str(trace),
             "--session",
             "s1",
+            "--turn",
+            "t1",
             "--type",
             "tool_call",
             "--json",
@@ -123,7 +125,8 @@ def test_cli_trace_can_filter_and_emit_json(tmp_path: Path) -> None:
     )
 
     assert '"session_id": "s1"' in result.stdout
-    assert '"session_id": "s2"' not in result.stdout
+    assert '"turn_id": "t1"' in result.stdout
+    assert '"turn_id": "t2"' not in result.stdout
 
 
 def test_cli_trace_sessions_summary(tmp_path: Path) -> None:

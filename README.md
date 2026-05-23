@@ -123,8 +123,8 @@ PYTHONPATH=src python3 -m harness.cli run "say hi" \
 ```
 
 Use `--json` when another process, future server, or UI wrapper needs a stable
-result object with `session_id`, `stop_reason`, `iterations`, checkpoint fields,
-and final text:
+result object with `session_id`, `turn_id`, `stop_reason`, `iterations`,
+checkpoint fields, and final text:
 
 ```bash
 PYTHONPATH=src python3 -m harness.cli run "say hi" \
@@ -298,6 +298,7 @@ Filter trace data during debugging:
 PYTHONPATH=src python3 -m harness.cli trace \
   --trace /tmp/harness-trace.jsonl \
   --session <session-id> \
+  --turn <turn-id> \
   --type tool_call \
   --json
 

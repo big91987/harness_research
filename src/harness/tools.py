@@ -142,13 +142,19 @@ def _list_files(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     base = workspace.resolve(args.get("path") or ".")
     pattern = args.get("pattern") or "*"
     max_entries = int(args.get("max_entries") or 0)
+    max_depth = int(args["max_depth"]) if "max_depth" in args else 0
     if max_entries < 0:
         return ToolResult("max_entries must be >= 0", is_error=True)
+    if max_depth < 0:
+        return ToolResult("max_depth must be >= 0", is_error=True)
     if not base.exists():
         return ToolResult(f"path does not exist: {base}", is_error=True)
     entries: list[str] = []
     truncated = False
     for path in sorted(base.rglob("*")):
+        depth = len(path.relative_to(base).parts)
+        if max_depth > 0 and depth > max_depth:
+            continue
         if not fnmatch.fnmatch(path.name, pattern):
             continue
         suffix = "/" if path.is_dir() else ""
@@ -402,6 +408,7 @@ def default_tool_registry(
                     "path": {"type": "string"},
                     "pattern": {"type": "string"},
                     "max_entries": {"type": "integer"},
+                    "max_depth": {"type": "integer"},
                 },
                 [],
             ),

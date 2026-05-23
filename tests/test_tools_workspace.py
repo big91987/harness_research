@@ -58,6 +58,40 @@ def test_list_files_rejects_negative_max_entries(tmp_path: Path) -> None:
     assert "max_entries must be >= 0" in result.output
 
 
+def test_list_files_can_limit_recursion_depth(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "dir" / "child").mkdir(parents=True)
+    (tmp_path / "dir" / "child" / "nested.txt").write_text("nested", encoding="utf-8")
+    (tmp_path / "root.txt").write_text("root", encoding="utf-8")
+
+    result = tools.get("list_files").run(
+        {"max_depth": 1},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert not result.is_error
+    assert "dir/" in result.output
+    assert "root.txt" in result.output
+    assert "dir/child/" not in result.output
+    assert "nested.txt" not in result.output
+
+
+def test_list_files_rejects_negative_max_depth(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("list_files").run(
+        {"max_depth": -1},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert result.is_error
+    assert "max_depth must be >= 0" in result.output
+
+
 def test_read_only_policy_denies_writes_but_allows_reads(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     (tmp_path / "a.txt").write_text("ok")
@@ -553,6 +587,7 @@ def test_tool_registry_describes_tools() -> None:
     assert read_description["required_permission"] == "read-only"
     assert read_description["parameters"]["required"] == ["path"]
     assert "max_entries" in registry.describe("list_files")["parameters"]["properties"]
+    assert "max_depth" in registry.describe("list_files")["parameters"]["properties"]
     assert append_description["name"] == "append_file"
     assert append_description["required_permission"] == "workspace-write"
     assert append_description["parameters"]["required"] == ["path", "content"]

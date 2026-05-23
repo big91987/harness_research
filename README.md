@@ -451,7 +451,7 @@ PYTHONPATH=src python3 -m harness.cli tools --json
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --call list_files \
-  --args-json '{"path":".","pattern":"*.py","max_entries":100}'
+  --args-json '{"path":".","pattern":"*.py","max_entries":100,"max_depth":2}'
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \

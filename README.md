@@ -221,12 +221,16 @@ Create and restore a workspace checkpoint:
 PYTHONPATH=src python3 -m harness.cli checkpoint \
   --workspace /tmp/harness-ws \
   --checkpoint-dir /tmp/harness-checkpoints \
+  --artifact-dir /tmp/harness-artifacts \
   --label before-risky-edit
 
 PYTHONPATH=src python3 -m harness.cli checkpoint \
   --workspace /tmp/harness-ws \
   --restore /tmp/harness-checkpoints/<checkpoint-id>/manifest.json
 ```
+
+When `--artifact-dir` is provided, the checkpoint manifest is registered as a
+`checkpoint-manifest` artifact so it can be verified later.
 
 Register and verify artifacts:
 

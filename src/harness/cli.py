@@ -140,6 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint = subparsers.add_parser("checkpoint", help="Create or restore workspace checkpoints.")
     checkpoint.add_argument("--workspace")
     checkpoint.add_argument("--checkpoint-dir", default=".harness/checkpoints")
+    checkpoint.add_argument("--artifact-dir")
     checkpoint.add_argument("--label", default="")
     checkpoint.add_argument("--restore", help="Path to a checkpoint manifest.json to restore.")
 
@@ -546,6 +547,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"checkpoint: {checkpoint.id}")
             print(f"manifest: {checkpoint.manifest_path}")
             print(f"files: {len(checkpoint.files)}")
+            if args.artifact_dir or config.artifact_dir:
+                artifact = ArtifactStore(args.artifact_dir or config.artifact_dir).register_file(
+                    checkpoint.manifest_path,
+                    workspace_root=checkpoint.root,
+                    kind="checkpoint-manifest",
+                )
+                print(f"artifact: {artifact.id}")
         return 0
     if args.command == "doctor":
         config = _merged_config(args)

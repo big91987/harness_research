@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from harness.audit import AuditLog
 from harness.context import ContextManager
+from harness.cost import ModelPricing, canonical_usage
 from harness.memory import MarkdownMemoryStore
 from harness.model import ModelClient
 from harness.permissions import Policy
@@ -30,6 +31,7 @@ class AgentKernel:
     trace: TraceRecorder | None = None
     audit: AuditLog | None = None
     memory: MarkdownMemoryStore | None = None
+    pricing: ModelPricing = ModelPricing()
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     max_iterations: int = 20
 
@@ -60,14 +62,15 @@ class AgentKernel:
                 trace.record("model_error", session_id=session.id, iteration=iterations, error=str(exc))
                 session.messages.append(Message.assistant(final_text))
                 break
+            cost_usd = self._record_usage(session, response.usage)
             trace.record(
                 "model_response",
                 session_id=session.id,
                 iteration=iterations,
                 tool_calls=len(response.tool_calls),
                 usage=response.usage,
+                cost_usd=cost_usd,
             )
-            self._record_usage(session, response.usage)
 
             session.messages.append(Message.assistant(response.content, response.tool_calls))
             if not response.tool_calls:
@@ -112,6 +115,10 @@ class AgentKernel:
         )
         return TurnResult(session.id, final_text, iterations, stop_reason)
 
-    def _record_usage(self, session: Session, usage: dict) -> None:
+    def _record_usage(self, session: Session, usage: dict) -> float:
+        tokens = canonical_usage(usage)
         for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
-            session.usage[key] = int(session.usage.get(key, 0)) + int(usage.get(key, 0) or 0)
+            session.usage[key] = int(session.usage.get(key, 0)) + int(tokens.get(key, 0) or 0)
+        cost_usd = self.pricing.estimate(usage)
+        session.cost_usd += cost_usd
+        return cost_usd

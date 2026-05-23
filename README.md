@@ -31,6 +31,7 @@ Implemented modules:
 - `harness.memory`: Markdown-backed persistent memory.
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
+- `harness.cost`: canonical usage normalization and model cost estimation.
 - `harness.eval`: simple trace-based regression checks.
 - `harness.checkpoint`: workspace snapshot and restore manifests.
 - `harness.artifacts`: artifact registration, hash metadata, and verification.
@@ -118,7 +119,11 @@ Config-driven run:
   "session_dir": "/tmp/harness-sessions",
   "trace": "/tmp/harness-trace.jsonl",
   "memory_dir": "/tmp/harness-memory",
-  "permission": "workspace-write"
+  "permission": "workspace-write",
+  "input_cost_per_million_tokens": 0.0,
+  "output_cost_per_million_tokens": 0.0,
+  "max_total_tokens": 100000,
+  "max_cost_usd": 1.0
 }
 ```
 
@@ -136,7 +141,9 @@ PYTHONPATH=src python3 -m harness.cli eval \
   --trace /tmp/harness-trace.jsonl \
   --expect-stop-reason final_answer \
   --require-tool write_file \
-  --max-tool-errors 0
+  --max-tool-errors 0 \
+  --max-total-tokens 100000 \
+  --max-cost-usd 1.0
 ```
 
 Run a golden trace suite:
@@ -151,6 +158,8 @@ Run a golden trace suite:
         "stop_reason": "final_answer",
         "required_tools": ["write_file"],
         "max_tool_errors": 0,
+        "max_total_tokens": 100000,
+        "max_cost_usd": 1.0,
         "final_text_contains": "created"
       }
     }
@@ -238,12 +247,29 @@ Configure resource limits in `harness.json`:
 
 These limits protect the active context from large files, binary files, and long-running commands.
 
+Configure cost tracking in `harness.json` or environment variables:
+
+```json
+{
+  "input_cost_per_million_tokens": 1.0,
+  "output_cost_per_million_tokens": 2.0,
+  "max_total_tokens": 100000,
+  "max_cost_usd": 1.0
+}
+```
+
+`HARNESS_INPUT_COST_PER_MILLION_TOKENS`, `HARNESS_OUTPUT_COST_PER_MILLION_TOKENS`,
+`HARNESS_MAX_TOTAL_TOKENS`, and `HARNESS_MAX_COST_USD` override the JSON values.
+The kernel aggregates usage and cost into sessions, and trace eval/golden suites can
+fail runs that exceed token or cost budgets.
+
 Kernel failure behavior:
 
 - Unknown tools are converted into tool-result errors and returned to the model.
 - Model failures are recorded in trace and end the turn with `model_error`.
 - Invalid model tool-call arguments produce explicit protocol errors instead of obscure JSON failures.
 - Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
+- Session state also aggregates estimated cost when model pricing is configured.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
 - Tool calls are also written to an audit log when configured.

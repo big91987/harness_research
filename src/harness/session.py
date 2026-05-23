@@ -22,6 +22,7 @@ class Session:
         "completion_tokens": 0,
         "total_tokens": 0,
     })
+    cost_usd: float = 0.0
 
     @classmethod
     def new(cls, workspace: str) -> "Session":
@@ -46,6 +47,7 @@ class Session:
                 "completion_tokens": int((data.get("usage") or {}).get("completion_tokens", 0)),
                 "total_tokens": int((data.get("usage") or {}).get("total_tokens", 0)),
             },
+            cost_usd=float(data.get("cost_usd") or 0.0),
         )
 
 

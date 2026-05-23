@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import json
 from pathlib import Path
 
+from harness.cost import canonical_usage
 from harness.trace import TraceRecorder
 
 
@@ -13,6 +14,8 @@ class EvalExpectation:
     max_tool_errors: int | None = None
     required_tools: list[str] = field(default_factory=list)
     final_text_contains: str | None = None
+    max_total_tokens: int | None = None
+    max_cost_usd: float | None = None
 
 
 @dataclass
@@ -72,6 +75,30 @@ def evaluate_trace(path: str | Path, expectation: EvalExpectation) -> EvalReport
             else f"failed: final text did not contain {expectation.final_text_contains!r}"
         )
 
+    if expectation.max_total_tokens is not None:
+        total_tokens = sum(
+            canonical_usage(dict(event.get("usage") or {}))["total_tokens"]
+            for event in events
+            if event.get("type") == "model_response"
+        )
+        checks["max_total_tokens"] = (
+            "passed"
+            if total_tokens <= expectation.max_total_tokens
+            else f"failed: expected <= {expectation.max_total_tokens}, got {total_tokens}"
+        )
+
+    if expectation.max_cost_usd is not None:
+        total_cost = sum(
+            float(event.get("cost_usd") or 0.0)
+            for event in events
+            if event.get("type") == "model_response"
+        )
+        checks["max_cost_usd"] = (
+            "passed"
+            if total_cost <= expectation.max_cost_usd
+            else f"failed: expected <= {expectation.max_cost_usd:.6f}, got {total_cost:.6f}"
+        )
+
     return EvalReport(
         passed=bool(checks) and all(value == "passed" for value in checks.values()),
         checks=checks,
@@ -94,6 +121,8 @@ def run_golden_suite(path: str | Path) -> GoldenSuiteReport:
                 max_tool_errors=expect.get("max_tool_errors"),
                 required_tools=list(expect.get("required_tools") or []),
                 final_text_contains=expect.get("final_text_contains"),
+                max_total_tokens=expect.get("max_total_tokens"),
+                max_cost_usd=expect.get("max_cost_usd"),
             ),
         )
         case_reports.append(GoldenCaseReport(name=case.get("name") or f"case-{index}", report=report))

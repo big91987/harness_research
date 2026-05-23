@@ -5,6 +5,8 @@ from pathlib import Path
 from time import time
 from typing import Any
 
+from harness.cost import canonical_usage
+
 
 class TraceRecorder:
     def __init__(self, path: str | Path | None = None) -> None:
@@ -40,5 +42,20 @@ class TraceRecorder:
                 1
                 for event in events
                 if event.get("type") == "tool_call" and bool(event.get("is_error"))
+            ),
+            "total_tokens": sum(
+                canonical_usage(dict(event.get("usage") or {}))["total_tokens"]
+                for event in events
+                if event.get("type") == "model_response"
+            ),
+            "cost_usd_micros": int(
+                round(
+                    sum(
+                        float(event.get("cost_usd") or 0.0)
+                        for event in events
+                        if event.get("type") == "model_response"
+                    )
+                    * 1_000_000
+                )
             ),
         }

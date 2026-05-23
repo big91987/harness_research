@@ -9,6 +9,7 @@ from harness.audit import AuditLog
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
+from harness.cost import ModelPricing
 from harness.doctor import DoctorReport
 from harness.eval import EvalExpectation, evaluate_trace, run_golden_suite
 from harness.kernel import AgentKernel
@@ -69,6 +70,8 @@ def build_parser() -> argparse.ArgumentParser:
     eval_cmd.add_argument("--max-tool-errors", type=int)
     eval_cmd.add_argument("--require-tool", action="append", default=[])
     eval_cmd.add_argument("--final-text-contains")
+    eval_cmd.add_argument("--max-total-tokens", type=int)
+    eval_cmd.add_argument("--max-cost-usd", type=float)
 
     golden = subparsers.add_parser("golden", help="Run a golden trace regression suite.")
     golden.add_argument("suite")
@@ -149,6 +152,10 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         trace=TraceRecorder(config.trace),
         audit=AuditLog(config.audit),
         memory=MarkdownMemoryStore(config.memory_dir),
+        pricing=ModelPricing(
+            input_cost_per_million_tokens=config.input_cost_per_million_tokens,
+            output_cost_per_million_tokens=config.output_cost_per_million_tokens,
+        ),
         max_iterations=config.max_iterations,
     )
     return kernel, session
@@ -174,6 +181,10 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "default_bash_timeout_seconds",
         "max_bash_timeout_seconds",
         "max_iterations",
+        "input_cost_per_million_tokens",
+        "output_cost_per_million_tokens",
+        "max_total_tokens",
+        "max_cost_usd",
     ):
         value = getattr(args, attr, None)
         if value is not None:
@@ -240,6 +251,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"usage_prompt_tokens: {session.usage.get('prompt_tokens', 0)}")
             print(f"usage_completion_tokens: {session.usage.get('completion_tokens', 0)}")
             print(f"usage_total_tokens: {session.usage.get('total_tokens', 0)}")
+            print(f"cost_usd: {session.cost_usd:.6f}")
             last = session.messages[-1] if session.messages else None
             if last:
                 print(f"last_{last.role}: {last.content}")
@@ -274,6 +286,8 @@ def main(argv: list[str] | None = None) -> int:
                 max_tool_errors=args.max_tool_errors,
                 required_tools=args.require_tool,
                 final_text_contains=args.final_text_contains,
+                max_total_tokens=args.max_total_tokens if args.max_total_tokens is not None else config.max_total_tokens,
+                max_cost_usd=args.max_cost_usd if args.max_cost_usd is not None else config.max_cost_usd,
             ),
         )
         for key, value in report.checks.items():

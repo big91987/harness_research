@@ -194,4 +194,5 @@ def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     )
     assert "messages: 4" in show.stdout
     assert "usage_total_tokens:" in show.stdout
+    assert "cost_usd:" in show.stdout
     assert "last_assistant: two" in show.stdout

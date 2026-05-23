@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from harness.audit import AuditLog
+from harness.cost import ModelPricing
 from harness.kernel import AgentKernel
 from harness.model import FakeModelClient
 from harness.permissions import PermissionMode, Policy
@@ -145,6 +146,40 @@ def test_kernel_aggregates_usage(tmp_path: Path) -> None:
 
     assert result.stop_reason == "final_answer"
     assert session.usage == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+
+
+def test_kernel_aggregates_usage_aliases_and_cost(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    trace = TraceRecorder(tmp_path / "trace.jsonl")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="tracked",
+                usage={"input_tokens": 1_000_000, "output_tokens": 500_000},
+            )
+        ]
+    )
+    session = Session.new(workspace=str(workspace.root))
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        trace=trace,
+        pricing=ModelPricing(input_cost_per_million_tokens=1.0, output_cost_per_million_tokens=2.0),
+    )
+
+    result = kernel.run_turn(session, "usage")
+
+    assert result.stop_reason == "final_answer"
+    assert session.usage == {
+        "prompt_tokens": 1_000_000,
+        "completion_tokens": 500_000,
+        "total_tokens": 1_500_000,
+    }
+    assert session.cost_usd == 2.0
+    assert '"cost_usd": 2.0' in (tmp_path / "trace.jsonl").read_text()
 
 
 def test_kernel_policy_denies_disallowed_tool_and_audits(tmp_path: Path) -> None:

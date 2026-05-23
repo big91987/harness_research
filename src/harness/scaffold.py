@@ -45,6 +45,10 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "max_bash_timeout_seconds": 120,
             "model": "gpt-4.1-mini",
             "max_iterations": 20,
+            "input_cost_per_million_tokens": 0.0,
+            "output_cost_per_million_tokens": 0.0,
+            "max_total_tokens": 100000,
+            "max_cost_usd": 1.0,
         },
         overwrite=overwrite,
     )
@@ -79,6 +83,8 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
                         "stop_reason": "final_answer",
                         "required_tools": ["write_file"],
                         "max_tool_errors": 0,
+                        "max_total_tokens": 100000,
+                        "max_cost_usd": 1.0,
                         "final_text_contains": "created sample.txt",
                     },
                 }

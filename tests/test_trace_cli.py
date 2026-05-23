@@ -12,14 +12,22 @@ def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
     trace.record("turn_start", session_id="s1")
     trace.record("tool_call", session_id="s1", name="read_file", is_error=False)
     trace.record("tool_call", session_id="s1", name="bash", is_error=True)
+    trace.record(
+        "model_response",
+        session_id="s1",
+        usage={"input_tokens": 10, "output_tokens": 5},
+        cost_usd=0.000123,
+    )
     trace.record("turn_end", session_id="s1", stop_reason="final_answer")
 
     summary = TraceRecorder(path).summary()
 
-    assert summary["events"] == 4
+    assert summary["events"] == 5
     assert summary["tool_calls"] == 2
     assert summary["tool_errors"] == 1
     assert summary["turns"] == 1
+    assert summary["total_tokens"] == 15
+    assert summary["cost_usd_micros"] == 123
 
 
 def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:

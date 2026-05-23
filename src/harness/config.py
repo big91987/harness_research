@@ -26,6 +26,10 @@ class HarnessConfig:
     default_bash_timeout_seconds: int = 30
     max_bash_timeout_seconds: int = 120
     max_iterations: int = 20
+    input_cost_per_million_tokens: float = 0.0
+    output_cost_per_million_tokens: float = 0.0
+    max_total_tokens: int | None = None
+    max_cost_usd: float | None = None
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "HarnessConfig":
@@ -59,6 +63,10 @@ class HarnessConfig:
             "HARNESS_DEFAULT_BASH_TIMEOUT_SECONDS": "default_bash_timeout_seconds",
             "HARNESS_MAX_BASH_TIMEOUT_SECONDS": "max_bash_timeout_seconds",
             "HARNESS_MAX_ITERATIONS": "max_iterations",
+            "HARNESS_INPUT_COST_PER_MILLION_TOKENS": "input_cost_per_million_tokens",
+            "HARNESS_OUTPUT_COST_PER_MILLION_TOKENS": "output_cost_per_million_tokens",
+            "HARNESS_MAX_TOTAL_TOKENS": "max_total_tokens",
+            "HARNESS_MAX_COST_USD": "max_cost_usd",
         }
         for env_name, attr in mapping.items():
             value = os.environ.get(env_name)
@@ -70,8 +78,15 @@ class HarnessConfig:
                 "max_file_read_bytes",
                 "default_bash_timeout_seconds",
                 "max_bash_timeout_seconds",
+                "max_total_tokens",
             }:
                 setattr(self, attr, int(value))
+            elif attr in {
+                "input_cost_per_million_tokens",
+                "output_cost_per_million_tokens",
+                "max_cost_usd",
+            }:
+                setattr(self, attr, float(value))
             elif attr in {"allowed_tools", "denied_tools"}:
                 setattr(self, attr, [item.strip() for item in value.split(",") if item.strip()])
             else:

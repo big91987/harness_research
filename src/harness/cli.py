@@ -176,6 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
     checkpoint.add_argument("--artifact-dir")
     checkpoint.add_argument("--label", default="")
     checkpoint.add_argument("--restore", help="Path to a checkpoint manifest.json to restore.")
+    checkpoint.add_argument("--diff", help="Compare the workspace to a checkpoint manifest.json.")
 
     doctor = subparsers.add_parser("doctor", help="Print local harness diagnostics.")
     doctor.add_argument("--workspace")
@@ -692,7 +693,20 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "checkpoint":
         config = _merged_config(args)
-        if args.restore:
+        if args.diff:
+            diff = WorkspaceCheckpoint.diff(args.diff, config.workspace)
+            print(f"clean: {diff.clean}")
+            for label, paths in (
+                ("added", diff.added),
+                ("modified", diff.modified),
+                ("deleted", diff.deleted),
+                ("unchanged", diff.unchanged),
+            ):
+                if paths:
+                    print(f"{label}: {', '.join(paths)}")
+                else:
+                    print(f"{label}:")
+        elif args.restore:
             checkpoint = WorkspaceCheckpoint.restore(args.restore, config.workspace)
             print(f"restored: {checkpoint.id}")
             print(f"files: {len(checkpoint.files)}")

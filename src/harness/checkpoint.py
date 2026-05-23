@@ -16,6 +16,18 @@ class CheckpointFile:
 
 
 @dataclass(frozen=True)
+class WorkspaceDiff:
+    added: list[str]
+    modified: list[str]
+    deleted: list[str]
+    unchanged: list[str]
+
+    @property
+    def clean(self) -> bool:
+        return not self.added and not self.modified and not self.deleted
+
+
+@dataclass(frozen=True)
 class WorkspaceCheckpoint:
     id: str
     label: str
@@ -95,6 +107,27 @@ class WorkspaceCheckpoint:
             shutil.copy2(source, target)
         return checkpoint
 
+    @classmethod
+    def diff(cls, manifest_path: str | Path, workspace: str | Path) -> WorkspaceDiff:
+        checkpoint = cls.load(manifest_path)
+        workspace_path = Path(workspace).expanduser().resolve()
+        current = _scan_files(workspace_path)
+        checkpoint_files = checkpoint.files
+
+        added = sorted(path for path in current if path not in checkpoint_files)
+        deleted = sorted(path for path in checkpoint_files if path not in current)
+        modified = sorted(
+            path
+            for path in current.keys() & checkpoint_files.keys()
+            if current[path].sha256 != checkpoint_files[path].sha256
+        )
+        unchanged = sorted(
+            path
+            for path in current.keys() & checkpoint_files.keys()
+            if current[path].sha256 == checkpoint_files[path].sha256
+        )
+        return WorkspaceDiff(added=added, modified=modified, deleted=deleted, unchanged=unchanged)
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -103,3 +136,14 @@ def _sha256(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+
+def _scan_files(root: Path) -> dict[str, CheckpointFile]:
+    if not root.exists():
+        return {}
+    files: dict[str, CheckpointFile] = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file():
+            continue
+        rel = path.relative_to(root).as_posix()
+        files[rel] = CheckpointFile(size=path.stat().st_size, sha256=_sha256(path))
+    return files

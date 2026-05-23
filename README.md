@@ -266,6 +266,14 @@ PYTHONPATH=src python3 -m harness.cli checkpoint \
   --restore /tmp/harness-checkpoints/<checkpoint-id>/manifest.json
 ```
 
+Review workspace changes before restoring a checkpoint:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli checkpoint \
+  --workspace /tmp/harness-ws \
+  --diff /tmp/harness-checkpoints/<checkpoint-id>/manifest.json
+```
+
 When `--artifact-dir` is provided, the checkpoint manifest is registered as a
 `checkpoint-manifest` artifact so it can be verified later.
 

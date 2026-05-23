@@ -66,6 +66,11 @@ def build_parser() -> argparse.ArgumentParser:
     tools.add_argument("--show")
     tools.add_argument("--json", action="store_true")
 
+    config_cmd = subparsers.add_parser("config", help="Show and validate merged harness config.")
+    config_cmd.add_argument("--show", action="store_true")
+    config_cmd.add_argument("--validate", action="store_true")
+    config_cmd.add_argument("--json", action="store_true")
+
     sessions = subparsers.add_parser("sessions", help="List local sessions.")
     sessions.add_argument("--session-dir")
     sessions.add_argument("--show", help="Show one session summary.")
@@ -398,6 +403,26 @@ def main(argv: list[str] | None = None) -> int:
         for name in tools.names():
             print(name)
         return 0
+    if args.command == "config":
+        config = _merged_config(args)
+        issues = config.validate()
+        if args.json:
+            payload = {}
+            if args.show or not args.validate:
+                payload["config"] = config.redacted_dict()
+            if args.validate:
+                payload["issues"] = [asdict(issue) for issue in issues]
+                payload["valid"] = not any(issue.level == "error" for issue in issues)
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            if args.show or not args.validate:
+                for key, value in config.redacted_dict().items():
+                    print(f"{key}: {value}")
+            if args.validate:
+                for issue in issues:
+                    print(f"{issue.level}: {issue.key} - {issue.message}")
+                print(f"valid: {not any(issue.level == 'error' for issue in issues)}")
+        return 0 if not any(issue.level == "error" for issue in issues) else 1
     if args.command == "sessions":
         config = _merged_config(args)
         store = JsonlSessionStore(config.session_dir)

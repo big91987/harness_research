@@ -128,6 +128,67 @@ def test_cli_run_uses_config_file(tmp_path: Path) -> None:
     assert (tmp_path / "trace.jsonl").exists()
 
 
+def test_cli_config_show_redacts_api_key(tmp_path: Path) -> None:
+    config = tmp_path / "harness.json"
+    config.write_text(
+        json.dumps({"api_key": "secret-key", "base_url": "https://api.example.com"}),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config),
+            "config",
+            "--show",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["config"]["api_key"] == "***"
+    assert "secret-key" not in result.stdout
+
+
+def test_cli_config_validate_exits_nonzero_for_errors(tmp_path: Path) -> None:
+    config = tmp_path / "harness.json"
+    config.write_text(
+        json.dumps({"permission": "invalid", "max_iterations": 0}),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config),
+            "config",
+            "--validate",
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["valid"] is False
+    assert {issue["key"] for issue in payload["issues"] if issue["level"] == "error"} >= {
+        "permission",
+        "max_iterations",
+    }
+
+
 def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     session_dir = tmp_path / "sessions"
     workspace = tmp_path / "ws"

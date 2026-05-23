@@ -7,6 +7,13 @@ from pathlib import Path
 from typing import Any
 
 
+@dataclass(frozen=True)
+class ConfigIssue:
+    level: str
+    key: str
+    message: str
+
+
 @dataclass
 class HarnessConfig:
     workspace: str = ".harness/workspace"
@@ -106,3 +113,52 @@ class HarnessConfig:
         if data.get("api_key"):
             data["api_key"] = "***"
         return data
+
+    def validate(self) -> list[ConfigIssue]:
+        issues: list[ConfigIssue] = []
+        if self.permission not in {"read-only", "workspace-write", "danger", "prompt"}:
+            issues.append(ConfigIssue("error", "permission", f"unknown permission: {self.permission}"))
+        issues.extend(
+            _check_minimum(
+                {
+                    "max_output_chars": (self.max_output_chars, 0),
+                    "max_file_read_bytes": (self.max_file_read_bytes, 0),
+                    "default_bash_timeout_seconds": (self.default_bash_timeout_seconds, 1),
+                    "max_bash_timeout_seconds": (self.max_bash_timeout_seconds, 1),
+                    "max_iterations": (self.max_iterations, 1),
+                    "max_model_retries": (self.max_model_retries, 0),
+                    "input_cost_per_million_tokens": (self.input_cost_per_million_tokens, 0),
+                    "output_cost_per_million_tokens": (self.output_cost_per_million_tokens, 0),
+                }
+            )
+        )
+        if self.max_total_tokens is not None and self.max_total_tokens < 0:
+            issues.append(ConfigIssue("error", "max_total_tokens", "must be greater than or equal to 0"))
+        if self.max_cost_usd is not None and self.max_cost_usd < 0:
+            issues.append(ConfigIssue("error", "max_cost_usd", "must be greater than or equal to 0"))
+        if self.max_bash_timeout_seconds < self.default_bash_timeout_seconds:
+            issues.append(
+                ConfigIssue(
+                    "error",
+                    "max_bash_timeout_seconds",
+                    "must be greater than or equal to default_bash_timeout_seconds",
+                )
+            )
+        if bool(self.base_url) != bool(self.api_key):
+            issues.append(ConfigIssue("warn", "model_endpoint", "base_url and api_key should be configured together"))
+        allowed = set(self.allowed_tools or [])
+        denied = set(self.denied_tools or [])
+        overlap = sorted(allowed & denied)
+        if overlap:
+            issues.append(
+                ConfigIssue("error", "tools", f"tools cannot be both allowed and denied: {', '.join(overlap)}")
+            )
+        return issues
+
+
+def _check_minimum(values: dict[str, tuple[int | float, int | float]]) -> list[ConfigIssue]:
+    issues: list[ConfigIssue] = []
+    for key, (value, minimum) in values.items():
+        if value < minimum:
+            issues.append(ConfigIssue("error", key, f"must be greater than or equal to {minimum}"))
+    return issues

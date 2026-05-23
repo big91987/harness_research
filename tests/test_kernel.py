@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from harness.audit import AuditLog
 from harness.kernel import AgentKernel
 from harness.model import FakeModelClient
 from harness.permissions import PermissionMode, Policy
@@ -14,6 +15,7 @@ def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path / "ws")
     store = JsonlSessionStore(tmp_path / "sessions")
     trace = TraceRecorder(tmp_path / "trace.jsonl")
+    audit = AuditLog(tmp_path / "audit.jsonl")
     model = FakeModelClient(
         [
             ModelResponse(
@@ -36,6 +38,7 @@ def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
         workspace=workspace,
         policy=Policy(PermissionMode.WORKSPACE_WRITE),
         trace=trace,
+        audit=audit,
     )
 
     session = Session.new(workspace=str(workspace.root))
@@ -47,6 +50,8 @@ def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
     trace_text = (tmp_path / "trace.jsonl").read_text()
     assert '"model_call"' in trace_text
     assert '"tool_call"' in trace_text
+    audit_text = (tmp_path / "audit.jsonl").read_text()
+    assert '"action": "write_file"' in audit_text
 
 
 def test_kernel_stops_on_final_answer_without_tools(tmp_path: Path) -> None:

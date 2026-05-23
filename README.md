@@ -33,6 +33,8 @@ Implemented modules:
 - `harness.config`: JSON config loading with environment overrides.
 - `harness.eval`: simple trace-based regression checks.
 - `harness.checkpoint`: workspace snapshot and restore manifests.
+- `harness.artifacts`: artifact registration, hash metadata, and verification.
+- `harness.audit`: JSONL audit events for tool calls and approvals.
 
 ## Run Tests
 
@@ -111,6 +113,25 @@ PYTHONPATH=src python3 -m harness.cli checkpoint \
   --restore /tmp/harness-checkpoints/<checkpoint-id>/manifest.json
 ```
 
+Register and verify artifacts:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli artifacts \
+  --artifact-dir /tmp/harness-artifacts \
+  --workspace /tmp/harness-ws \
+  --register /tmp/harness-ws/out.txt
+
+PYTHONPATH=src python3 -m harness.cli artifacts \
+  --artifact-dir /tmp/harness-artifacts \
+  --verify <artifact-id>
+```
+
+Inspect audit events:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli audit --audit /tmp/harness-audit.jsonl
+```
+
 `prompt` permission mode asks for approval before mutating or dangerous tools:
 
 ```bash
@@ -123,6 +144,7 @@ Kernel failure behavior:
 - Model failures are recorded in trace and end the turn with `model_error`.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
+- Tool calls are also written to an audit log when configured.
 
 `responses.json`:
 

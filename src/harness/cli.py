@@ -4,6 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
+from harness.artifacts import ArtifactStore
+from harness.audit import AuditLog
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
@@ -31,6 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--session-dir")
     run.add_argument("--session")
     run.add_argument("--trace")
+    run.add_argument("--audit")
+    run.add_argument("--artifact-dir")
     run.add_argument("--memory-dir")
     run.add_argument("--base-url")
     run.add_argument("--api-key")
@@ -60,6 +64,16 @@ def build_parser() -> argparse.ArgumentParser:
     eval_cmd.add_argument("--max-tool-errors", type=int)
     eval_cmd.add_argument("--require-tool", action="append", default=[])
     eval_cmd.add_argument("--final-text-contains")
+
+    artifacts = subparsers.add_parser("artifacts", help="Register, list, and verify local artifacts.")
+    artifacts.add_argument("--artifact-dir")
+    artifacts.add_argument("--workspace")
+    artifacts.add_argument("--register", help="Path to a file to register.")
+    artifacts.add_argument("--kind", default="file")
+    artifacts.add_argument("--verify", help="Artifact id to verify.")
+
+    audit = subparsers.add_parser("audit", help="Print audit JSONL events.")
+    audit.add_argument("--audit")
 
     replay = subparsers.add_parser("replay", help="Print trace events as a compact timeline.")
     replay.add_argument("--trace")
@@ -103,6 +117,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         policy=Policy(PermissionMode(config.permission), approval_callback=_approval_callback),
         context=ContextManager(),
         trace=TraceRecorder(config.trace),
+        audit=AuditLog(config.audit),
         memory=MarkdownMemoryStore(config.memory_dir),
         max_iterations=config.max_iterations,
     )
@@ -115,6 +130,8 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "workspace",
         "session_dir",
         "trace",
+        "audit",
+        "artifact_dir",
         "memory_dir",
         "base_url",
         "api_key",
@@ -224,6 +241,34 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{key}: {value}")
         print(f"passed: {report.passed}")
         return 0 if report.passed else 1
+    if args.command == "artifacts":
+        config = _merged_config(args)
+        store = ArtifactStore(config.artifact_dir)
+        if args.register:
+            artifact = store.register_file(
+                args.register,
+                workspace_root=args.workspace or config.workspace,
+                kind=args.kind,
+            )
+            print(f"artifact: {artifact.id}")
+            print(f"path: {artifact.relative_path}")
+            print(f"sha256: {artifact.sha256}")
+            return 0
+        if args.verify:
+            print(f"verified: {store.verify(args.verify)}")
+            return 0
+        for artifact in store.list():
+            print(f"{artifact.id} {artifact.kind} {artifact.relative_path} {artifact.size}")
+        return 0
+    if args.command == "audit":
+        config = _merged_config(args)
+        for event in AuditLog(config.audit).read_events():
+            event_type = event.get("type")
+            action = event.get("action", "")
+            allowed = event.get("allowed")
+            suffix = "" if allowed is None else f" allowed={allowed}"
+            print(f"{event_type} {action}{suffix}".strip())
+        return 0
     if args.command == "replay":
         config = _merged_config(args)
         for event in TraceRecorder(config.trace).read_events():

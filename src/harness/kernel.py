@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from harness.audit import AuditLog
 from harness.context import ContextManager
 from harness.memory import MarkdownMemoryStore
 from harness.model import ModelClient
@@ -27,12 +28,14 @@ class AgentKernel:
     policy: Policy
     context: ContextManager | None = None
     trace: TraceRecorder | None = None
+    audit: AuditLog | None = None
     memory: MarkdownMemoryStore | None = None
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     max_iterations: int = 20
 
     def run_turn(self, session: Session, user_input: str) -> TurnResult:
         trace = self.trace or TraceRecorder()
+        audit = self.audit or AuditLog()
         context = self.context or ContextManager()
         session.messages.append(Message.user(user_input))
         trace.record("turn_start", session_id=session.id, user_input=user_input)
@@ -82,6 +85,14 @@ class AgentKernel:
                     session_id=session.id,
                     name=call.name,
                     arguments=call.arguments,
+                    is_error=result.is_error,
+                )
+                audit.record(
+                    "tool_call",
+                    session_id=session.id,
+                    actor="agent",
+                    action=call.name,
+                    allowed=not result.is_error,
                     is_error=result.is_error,
                 )
                 session.messages.append(Message.tool(call.id, call.name, result.output))

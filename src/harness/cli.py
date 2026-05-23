@@ -47,6 +47,14 @@ def build_parser() -> argparse.ArgumentParser:
     memory.add_argument("--add")
     memory.add_argument("--search")
 
+    trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
+    trace.add_argument("--trace", default=".harness/trace.jsonl")
+
+    doctor = subparsers.add_parser("doctor", help="Print local harness diagnostics.")
+    doctor.add_argument("--workspace", default=".harness/workspace")
+    doctor.add_argument("--session-dir", default=".harness/sessions")
+    doctor.add_argument("--memory-dir", default=".harness/memory")
+
     return parser
 
 
@@ -135,6 +143,23 @@ def main(argv: list[str] | None = None) -> int:
                 print(item)
         if not args.add and not args.search:
             print(memory.render_context())
+        return 0
+    if args.command == "trace":
+        summary = TraceRecorder(args.trace).summary()
+        for key, value in summary.items():
+            print(f"{key}: {value}")
+        return 0
+    if args.command == "doctor":
+        workspace = Workspace(args.workspace)
+        session_store = JsonlSessionStore(args.session_dir)
+        memory_store = MarkdownMemoryStore(args.memory_dir)
+        tools = default_tool_registry()
+        print(f"workspace: {workspace.root}")
+        print(f"session_dir: {session_store.root}")
+        print(f"memory_file: {memory_store.path}")
+        print(f"tools: {len(tools.names())}")
+        print(f"base_url_configured: {bool(os.environ.get('HARNESS_BASE_URL') or os.environ.get('OPENAI_BASE_URL'))}")
+        print(f"api_key_configured: {bool(os.environ.get('HARNESS_API_KEY') or os.environ.get('OPENAI_API_KEY'))}")
         return 0
     parser.error(f"unknown command {args.command}")
     return 2

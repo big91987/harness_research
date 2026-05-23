@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from harness.artifacts import ArtifactStore
+from harness.artifacts import ArtifactQuery, ArtifactStore
 from harness.audit import AuditLog, AuditQuery
 
 
@@ -22,6 +22,21 @@ def test_artifact_store_registers_and_verifies_workspace_file(tmp_path: Path) ->
     assert store.verify(artifact.id)
     artifact_file.write_text("changed", encoding="utf-8")
     assert not store.verify(artifact.id)
+
+
+def test_artifact_query_filters_by_kind_path_and_limit(tmp_path: Path) -> None:
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / "result.txt").write_text("hello", encoding="utf-8")
+    (workspace / "checkpoint.json").write_text("{}", encoding="utf-8")
+    store = ArtifactStore(tmp_path / "artifacts")
+    store.register_file(workspace / "result.txt", workspace_root=workspace, kind="output")
+    store.register_file(workspace / "checkpoint.json", workspace_root=workspace, kind="checkpoint-manifest")
+
+    artifacts = ArtifactQuery(store).artifacts(kind="checkpoint-manifest", path_contains="checkpoint", limit=1)
+
+    assert len(artifacts) == 1
+    assert artifacts[0].relative_path == "checkpoint.json"
 
 
 def test_audit_log_records_jsonl_events(tmp_path: Path) -> None:
@@ -91,6 +106,27 @@ def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
         env={**os.environ, "PYTHONPATH": "src"},
     )
     assert "verified: True" in listing.stdout
+
+    artifact_json = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "artifacts",
+            "--artifact-dir",
+            str(tmp_path / "artifacts"),
+            "--kind",
+            "file",
+            "--path-contains",
+            "out",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert '"relative_path": "out.txt"' in artifact_json.stdout
 
     audit_path = tmp_path / "audit.jsonl"
     audit_path.write_text(json.dumps({"type": "tool_call", "action": "read_file"}) + "\n", encoding="utf-8")

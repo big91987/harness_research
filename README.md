@@ -269,6 +269,12 @@ PYTHONPATH=src python3 -m harness.cli artifacts \
 PYTHONPATH=src python3 -m harness.cli artifacts \
   --artifact-dir /tmp/harness-artifacts \
   --verify <artifact-id>
+
+PYTHONPATH=src python3 -m harness.cli artifacts \
+  --artifact-dir /tmp/harness-artifacts \
+  --kind checkpoint-manifest \
+  --path-contains manifest \
+  --json
 ```
 
 Inspect audit events:

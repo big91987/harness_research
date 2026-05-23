@@ -70,10 +70,35 @@ class ArtifactStore:
         return path.exists() and path.stat().st_size == artifact.size and _sha256(path) == artifact.sha256
 
 
+class ArtifactQuery:
+    def __init__(self, store: ArtifactStore) -> None:
+        self.store = store
+
+    def artifacts(
+        self,
+        *,
+        kind: str | None = None,
+        path_contains: str | None = None,
+        limit: int | None = None,
+    ) -> list[Artifact]:
+        artifacts = self.store.list()
+        if kind is not None:
+            artifacts = [artifact for artifact in artifacts if artifact.kind == kind]
+        if path_contains is not None:
+            needle = path_contains.lower()
+            artifacts = [
+                artifact
+                for artifact in artifacts
+                if needle in artifact.relative_path.lower() or needle in artifact.path.lower()
+            ]
+        if limit is not None:
+            artifacts = artifacts[-limit:]
+        return artifacts
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
-

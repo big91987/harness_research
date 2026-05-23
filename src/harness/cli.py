@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
 
-from harness.artifacts import ArtifactStore
+from harness.artifacts import ArtifactQuery, ArtifactStore
 from harness.audit import AuditLog, AuditQuery
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
@@ -129,6 +130,9 @@ def build_parser() -> argparse.ArgumentParser:
     artifacts.add_argument("--workspace")
     artifacts.add_argument("--register", help="Path to a file to register.")
     artifacts.add_argument("--kind", default="file")
+    artifacts.add_argument("--path-contains")
+    artifacts.add_argument("--limit", type=int)
+    artifacts.add_argument("--json", action="store_true")
     artifacts.add_argument("--verify", help="Artifact id to verify.")
 
     audit = subparsers.add_parser("audit", help="Print audit JSONL events.")
@@ -541,7 +545,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.verify:
             print(f"verified: {store.verify(args.verify)}")
             return 0
-        for artifact in store.list():
+        artifacts = ArtifactQuery(store).artifacts(
+            kind=args.kind if args.kind != "file" or args.path_contains or args.limit or args.json else None,
+            path_contains=args.path_contains,
+            limit=args.limit,
+        )
+        if args.json:
+            print(json.dumps([asdict(artifact) for artifact in artifacts], ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        for artifact in artifacts:
             print(f"{artifact.id} {artifact.kind} {artifact.relative_path} {artifact.size}")
         return 0
     if args.command == "audit":

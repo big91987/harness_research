@@ -63,6 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-model-retries", type=int)
     run.add_argument("--max-total-tokens", type=int)
     run.add_argument("--max-cost-usd", type=float)
+    run.add_argument("--sandbox-runner")
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
 
@@ -80,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     tools.add_argument("--max-file-read-bytes", type=int)
     tools.add_argument("--default-bash-timeout-seconds", type=int)
     tools.add_argument("--max-bash-timeout-seconds", type=int)
+    tools.add_argument("--sandbox-runner")
     tools.add_argument("--json", action="store_true")
 
     config_cmd = subparsers.add_parser("config", help="Show and validate merged harness config.")
@@ -262,6 +264,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
             max_file_read_bytes=config.max_file_read_bytes,
             default_bash_timeout_seconds=config.default_bash_timeout_seconds,
             max_bash_timeout_seconds=config.max_bash_timeout_seconds,
+            sandbox_runner=config.sandbox_runner,
         ),
         store=store,
         workspace=workspace,
@@ -319,6 +322,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "max_file_read_bytes",
         "default_bash_timeout_seconds",
         "max_bash_timeout_seconds",
+        "sandbox_runner",
         "max_iterations",
         "max_model_retries",
         "input_cost_per_million_tokens",
@@ -452,6 +456,7 @@ def main(argv: list[str] | None = None) -> int:
             max_file_read_bytes=config.max_file_read_bytes,
             default_bash_timeout_seconds=config.default_bash_timeout_seconds,
             max_bash_timeout_seconds=config.max_bash_timeout_seconds,
+            sandbox_runner=config.sandbox_runner,
         )
         if args.call:
             try:
@@ -499,6 +504,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"name: {description['name']}")
                 print(f"description: {description['description']}")
                 print(f"required_permission: {description['required_permission']}")
+                print(f"category: {description['category']}")
+                print(f"sandbox_required: {description['sandbox_required']}")
                 print("parameters:")
                 print(json.dumps(description["parameters"], ensure_ascii=False, indent=2, sort_keys=True))
             return 0
@@ -920,6 +927,7 @@ def main(argv: list[str] | None = None) -> int:
             base_url=config.base_url,
             api_key=config.api_key,
             tools_count=len(tools.names()),
+            sandbox_runner=config.sandbox_runner,
         )
         for name, check in report.checks.items():
             status = "ok" if check.ok else check.level

@@ -84,6 +84,7 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
         base_url=None,
         api_key=None,
         tools_count=6,
+        sandbox_runner=None,
     )
 
     assert report.ok
@@ -92,6 +93,7 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
     assert report.checks["task_dir"].ok
     assert report.checks["model_config"].ok is False
     assert "api key" in report.checks["model_config"].message
+    assert report.checks["sandbox_runner"].level == "warn"
 
 
 def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
@@ -154,6 +156,7 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
     assert "skill_dir: ok" in doctor.stdout
     assert "task_dir: ok" in doctor.stdout
     assert "model_config: warn" in doctor.stdout
+    assert "sandbox_runner: warn" in doctor.stdout
 
 
 def test_cli_eval_suite_add_list_and_run(tmp_path: Path) -> None:

@@ -29,6 +29,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "max_file_read_bytes": 200,
           "default_bash_timeout_seconds": 3,
           "max_bash_timeout_seconds": 5,
+          "sandbox_runner": "python3 /tmp/runner.py",
           "max_iterations": 7,
           "max_model_retries": 2,
           "input_cost_per_million_tokens": 1.25,
@@ -61,6 +62,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.max_file_read_bytes == 200
     assert config.default_bash_timeout_seconds == 3
     assert config.max_bash_timeout_seconds == 5
+    assert config.sandbox_runner == "python3 /tmp/runner.py"
     assert config.max_iterations == 7
     assert config.max_model_retries == 2
     assert config.input_cost_per_million_tokens == 1.25
@@ -82,6 +84,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_MODEL_TIMEOUT_SECONDS", "17")
     monkeypatch.setenv("HARNESS_TOP_P", "0.75")
     monkeypatch.setenv("HARNESS_MAX_TOKENS", "2048")
+    monkeypatch.setenv("HARNESS_SANDBOX_RUNNER", "python3 /tmp/env-runner.py")
 
     config = HarnessConfig.load()
 
@@ -96,6 +99,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.model_timeout_seconds == 17
     assert config.top_p == 0.75
     assert config.max_tokens == 2048
+    assert config.sandbox_runner == "python3 /tmp/env-runner.py"
 
 
 def test_config_validate_reports_errors_and_warnings() -> None:

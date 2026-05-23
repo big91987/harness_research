@@ -1,7 +1,7 @@
 import pytest
 
 from harness.model import ModelProtocolError, OpenAICompatibleModelClient
-from harness.schema import Message
+from harness.schema import Message, ToolCall
 from harness.tools import default_tool_registry
 
 
@@ -70,3 +70,51 @@ def test_openai_client_accepts_missing_tool_call_id() -> None:
 
     assert calls[0].id.startswith("call_")
     assert calls[0].arguments == {"path": "a.txt"}
+
+
+def test_openai_client_round_trips_reasoning_content_metadata() -> None:
+    client = OpenAICompatibleModelClient(
+        base_url="https://example.com",
+        api_key="secret",
+        model="test-model",
+    )
+    message = Message.assistant(
+        "thinking with tool",
+        metadata={"reasoning_content": "internal reasoning"},
+    )
+
+    payload = client.build_payload([message], [])
+
+    assert payload["messages"][0]["reasoning_content"] == "internal reasoning"
+
+
+def test_openai_client_parses_reasoning_content_from_response_message() -> None:
+    client = OpenAICompatibleModelClient(
+        base_url="https://example.com",
+        api_key="secret",
+        model="test-model",
+    )
+    response = client._response_from_data(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": "",
+                        "reasoning_content": "must be echoed",
+                        "tool_calls": [
+                            {
+                                "id": "call-1",
+                                "function": {
+                                    "name": "write_file",
+                                    "arguments": "{\"path\":\"a.txt\",\"content\":\"ok\"}",
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    )
+
+    assert response.metadata["reasoning_content"] == "must be echoed"
+    assert response.tool_calls == [ToolCall("call-1", "write_file", {"path": "a.txt", "content": "ok"})]

@@ -39,6 +39,7 @@ class HarnessConfig:
     max_file_read_bytes: int = 1_000_000
     default_bash_timeout_seconds: int = 30
     max_bash_timeout_seconds: int = 120
+    sandbox_runner: str | None = None
     max_iterations: int = 20
     max_model_retries: int = 0
     input_cost_per_million_tokens: float = 0.0
@@ -84,6 +85,7 @@ class HarnessConfig:
             "HARNESS_MAX_FILE_READ_BYTES": "max_file_read_bytes",
             "HARNESS_DEFAULT_BASH_TIMEOUT_SECONDS": "default_bash_timeout_seconds",
             "HARNESS_MAX_BASH_TIMEOUT_SECONDS": "max_bash_timeout_seconds",
+            "HARNESS_SANDBOX_RUNNER": "sandbox_runner",
             "HARNESS_MAX_ITERATIONS": "max_iterations",
             "HARNESS_MAX_MODEL_RETRIES": "max_model_retries",
             "HARNESS_INPUT_COST_PER_MILLION_TOKENS": "input_cost_per_million_tokens",

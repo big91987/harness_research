@@ -77,13 +77,20 @@ class OpenAICompatibleModelClient(ModelClient):
             raise RuntimeError(f"model request failed: HTTP {exc.code}: {body}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"model request failed: {exc.reason}") from exc
+        return self._response_from_data(data)
+
+    def _response_from_data(self, data: dict[str, Any]) -> ModelResponse:
         choice = data["choices"][0]
         msg = choice.get("message") or {}
+        metadata: dict[str, Any] = {}
+        if msg.get("reasoning_content"):
+            metadata["reasoning_content"] = msg["reasoning_content"]
         return ModelResponse(
             content=msg.get("content") or "",
             tool_calls=self._parse_tool_calls(msg.get("tool_calls") or []),
             usage=data.get("usage") or {},
             raw=data,
+            metadata=metadata,
         )
 
     def _message_to_openai(self, message: Message) -> dict[str, Any]:
@@ -107,6 +114,8 @@ class OpenAICompatibleModelClient(ModelClient):
                 }
                 for call in message.tool_calls
             ]
+        if message.role == "assistant" and message.metadata.get("reasoning_content"):
+            out["reasoning_content"] = message.metadata["reasoning_content"]
         return out
 
     def _tool_to_openai(self, tool: dict[str, Any]) -> dict[str, Any]:

@@ -28,6 +28,7 @@ Implemented modules:
 - `harness.tools`: built-in `list_files`, `read_file`, `write_file`, `append_file`, `diff_file`, `edit_file`, `move_path`, `make_directory`, `copy_path`, `delete_path`, `grep`, `bash`.
 - `harness.permissions`: read-only, workspace-write, danger, and prompt policy modes.
 - `harness.workspace`: workspace path containment.
+- Tool sandboxing: filesystem/search tools are guarded by workspace-scoped parameters; high-risk execution tools such as `bash` require a configured sandbox runner and fail closed when it is missing.
 - `harness.session`: JSONL session persistence.
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
@@ -517,6 +518,7 @@ PYTHONPATH=src python3 -m harness.cli tools \
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --permission danger \
+  --sandbox-runner "python3 /path/to/sandbox_runner.py" \
   --call bash \
   --args-json '{"command":"printf \"$HARNESS_MODE\"","cwd":"pkg","env":{"HARNESS_MODE":"local"}}'
 
@@ -538,6 +540,7 @@ Configure resource limits in `harness.json`:
   "max_file_read_bytes": 1000000,
   "default_bash_timeout_seconds": 30,
   "max_bash_timeout_seconds": 120,
+  "sandbox_runner": "python3 /path/to/sandbox_runner.py",
   "model_timeout_seconds": 120,
   "max_model_retries": 1,
   "temperature": 0.2,
@@ -549,8 +552,10 @@ Configure resource limits in `harness.json`:
 These limits protect the active context from large files, binary files, long-running
 commands, slow model providers, and transient model failures.
 `HARNESS_MODEL_TIMEOUT_SECONDS`, `HARNESS_MAX_MODEL_RETRIES`,
-`HARNESS_TEMPERATURE`, `HARNESS_TOP_P`, and `HARNESS_MAX_TOKENS` override the
-JSON values.
+`HARNESS_TEMPERATURE`, `HARNESS_TOP_P`, `HARNESS_MAX_TOKENS`, and
+`HARNESS_SANDBOX_RUNNER` override the JSON values. High-risk execution tools
+such as `bash` fail closed when no sandbox runner is configured; file tools
+still rely on workspace path guarding and resource limits.
 
 Configure cost tracking in `harness.json` or environment variables:
 

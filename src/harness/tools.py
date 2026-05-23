@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import difflib
 import fnmatch
-import os
+import json
+import shlex
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -18,6 +19,9 @@ DEFAULT_MAX_OUTPUT_CHARS = 20_000
 DEFAULT_MAX_FILE_READ_BYTES = 1_000_000
 DEFAULT_BASH_TIMEOUT_SECONDS = 30
 DEFAULT_MAX_BASH_TIMEOUT_SECONDS = 120
+TOOL_CATEGORY_FILESYSTEM = "filesystem"
+TOOL_CATEGORY_SEARCH = "search"
+TOOL_CATEGORY_EXECUTION = "execution"
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,7 @@ class ToolRuntimeLimits:
     max_file_read_bytes: int = DEFAULT_MAX_FILE_READ_BYTES
     default_bash_timeout_seconds: int = DEFAULT_BASH_TIMEOUT_SECONDS
     max_bash_timeout_seconds: int = DEFAULT_MAX_BASH_TIMEOUT_SECONDS
+    sandbox_runner: str | None = None
 
 
 @dataclass
@@ -45,6 +50,8 @@ class Tool:
     handler: ToolHandler
     required_permission: PermissionMode = PermissionMode.READ_ONLY
     max_output_chars: int = 20_000
+    category: str = TOOL_CATEGORY_FILESYSTEM
+    sandbox_required: bool = False
 
     def run(self, arguments: dict[str, Any], workspace: Workspace, policy: Policy) -> ToolResult:
         decision = policy.check(self.name, self.required_permission)
@@ -94,6 +101,8 @@ class Tool:
             "description": self.description,
             "parameters": self.parameters,
             "required_permission": self.required_permission.value,
+            "category": self.category,
+            "sandbox_required": self.sandbox_required,
         }
 
     def openai_definition(self) -> dict[str, Any]:
@@ -363,24 +372,35 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     if not cwd.is_dir():
         return ToolResult(f"cwd is not a directory: {args.get('cwd') or '.'}", is_error=True)
     extra_env = {str(key): str(value) for key, value in dict(args.get("env") or {}).items()}
-    env = {**os.environ, **extra_env}
     default_timeout = int(args.get("_default_bash_timeout_seconds") or DEFAULT_BASH_TIMEOUT_SECONDS)
     max_timeout = int(args.get("_max_bash_timeout_seconds") or DEFAULT_MAX_BASH_TIMEOUT_SECONDS)
     requested_timeout = int(args.get("timeout_seconds") or default_timeout)
     timeout = min(requested_timeout, max_timeout)
+    runner = str(args.get("_sandbox_runner") or "").strip()
+    if not runner:
+        return ToolResult("sandbox runner is required for bash", is_error=True)
+    request = {
+        "tool": "bash",
+        "command": command,
+        "cwd": str(cwd),
+        "workspace_root": str(workspace.root),
+        "env": extra_env,
+        "timeout_seconds": timeout,
+    }
     try:
         completed = subprocess.run(
-            command,
-            cwd=cwd,
-            shell=True,
+            shlex.split(runner),
+            input=json.dumps(request, ensure_ascii=False),
+            cwd=workspace.root,
             text=True,
             capture_output=True,
             timeout=timeout,
-            env=env,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return ToolResult(f"command timed out after {timeout} seconds", True)
+        return ToolResult(f"sandbox runner timed out after {timeout} seconds", True)
+    except FileNotFoundError:
+        return ToolResult(f"sandbox runner not found: {runner}", True)
     output = completed.stdout
     if completed.stderr:
         output += ("\n" if output else "") + completed.stderr
@@ -403,12 +423,14 @@ def default_tool_registry(
     max_file_read_bytes: int = DEFAULT_MAX_FILE_READ_BYTES,
     default_bash_timeout_seconds: int = DEFAULT_BASH_TIMEOUT_SECONDS,
     max_bash_timeout_seconds: int = DEFAULT_MAX_BASH_TIMEOUT_SECONDS,
+    sandbox_runner: str | None = None,
 ) -> ToolRegistry:
     limits = ToolRuntimeLimits(
         max_output_chars=max_output_chars,
         max_file_read_bytes=max_file_read_bytes,
         default_bash_timeout_seconds=default_bash_timeout_seconds,
         max_bash_timeout_seconds=max_bash_timeout_seconds,
+        sandbox_runner=sandbox_runner,
     )
     read_handler = _with_runtime_args(
         _read_file,
@@ -419,6 +441,7 @@ def default_tool_registry(
         {
             "_default_bash_timeout_seconds": limits.default_bash_timeout_seconds,
             "_max_bash_timeout_seconds": limits.max_bash_timeout_seconds,
+            "_sandbox_runner": limits.sandbox_runner,
         },
     )
     registry = ToolRegistry()
@@ -579,6 +602,7 @@ def default_tool_registry(
             ),
             _grep,
             max_output_chars=limits.max_output_chars,
+            category=TOOL_CATEGORY_SEARCH,
         )
     )
     registry.register(
@@ -597,6 +621,8 @@ def default_tool_registry(
             bash_handler,
             PermissionMode.DANGER,
             max_output_chars=limits.max_output_chars,
+            category=TOOL_CATEGORY_EXECUTION,
+            sandbox_required=True,
         )
     )
     return registry

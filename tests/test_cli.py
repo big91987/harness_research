@@ -22,6 +22,8 @@ def test_cli_parser_accepts_run_options(tmp_path: Path) -> None:
             "test-model",
             "--model-timeout-seconds",
             "7",
+            "--sandbox-runner",
+            "python3 /tmp/runner.py",
             "--base-url",
             "https://example.com",
         ]
@@ -31,6 +33,7 @@ def test_cli_parser_accepts_run_options(tmp_path: Path) -> None:
     assert args.prompt == "hello"
     assert args.workspace == str(tmp_path)
     assert args.model_timeout_seconds == 7
+    assert args.sandbox_runner == "python3 /tmp/runner.py"
 
 
 def test_cli_tools_can_show_schema_and_emit_json() -> None:
@@ -45,6 +48,7 @@ def test_cli_tools_can_show_schema_and_emit_json() -> None:
     )
     assert "name: read_file" in shown.stdout
     assert "required_permission: read-only" in shown.stdout
+    assert "category: filesystem" in shown.stdout
 
     json_result = subprocess.run(
         [sys.executable, "-m", "harness.cli", "tools", "--json"],

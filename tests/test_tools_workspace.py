@@ -5,6 +5,33 @@ from harness.tools import default_tool_registry
 from harness.workspace import Workspace
 
 
+def _write_bash_runner(path: Path) -> str:
+    path.write_text(
+        """
+import json
+import subprocess
+import sys
+
+request = json.loads(sys.stdin.read())
+completed = subprocess.run(
+    request["command"],
+    cwd=request["cwd"],
+    shell=True,
+    text=True,
+    capture_output=True,
+    timeout=request["timeout_seconds"],
+    env={"PATH": "/usr/bin:/bin", **request.get("env", {})},
+    check=False,
+)
+sys.stdout.write(completed.stdout)
+sys.stderr.write(completed.stderr)
+sys.exit(completed.returncode)
+""".lstrip(),
+        encoding="utf-8",
+    )
+    return f"python3 {path}"
+
+
 def test_filesystem_tools_stay_inside_workspace(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -233,7 +260,23 @@ def test_bash_requires_danger_permission(tmp_path: Path) -> None:
     assert denied.is_error
 
     allowed = tools.get("bash").run({"command": "printf ok"}, workspace, Policy(PermissionMode.DANGER))
-    assert allowed.output == "ok"
+    assert allowed.is_error
+    assert "sandbox runner is required" in allowed.output
+
+
+def test_bash_runs_through_configured_sandbox_runner(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "workspace")
+    tools = default_tool_registry(sandbox_runner=_write_bash_runner(tmp_path / "runner.py"))
+
+    result = tools.get("bash").run(
+        {"command": "printf ok > out.txt && cat out.txt"},
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert not result.is_error
+    assert result.output == "ok"
+    assert (tmp_path / "workspace" / "out.txt").read_text(encoding="utf-8") == "ok"
 
 
 def test_move_path_moves_files_inside_workspace(tmp_path: Path) -> None:
@@ -514,7 +557,11 @@ def test_read_file_rejects_binary_files(tmp_path: Path) -> None:
 
 def test_bash_timeout_is_clamped(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
-    tools = default_tool_registry(default_bash_timeout_seconds=1, max_bash_timeout_seconds=1)
+    tools = default_tool_registry(
+        default_bash_timeout_seconds=1,
+        max_bash_timeout_seconds=1,
+        sandbox_runner=_write_bash_runner(tmp_path / "runner.py"),
+    )
 
     result = tools.get("bash").run(
         {"command": "python3 -c 'import time; time.sleep(2)'", "timeout_seconds": 99},
@@ -528,7 +575,7 @@ def test_bash_timeout_is_clamped(tmp_path: Path) -> None:
 
 def test_bash_accepts_structured_environment_variables(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
-    tools = default_tool_registry()
+    tools = default_tool_registry(sandbox_runner=_write_bash_runner(tmp_path / "runner.py"))
 
     result = tools.get("bash").run(
         {
@@ -545,7 +592,7 @@ def test_bash_accepts_structured_environment_variables(tmp_path: Path) -> None:
 
 def test_bash_can_run_from_workspace_subdirectory(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
-    tools = default_tool_registry()
+    tools = default_tool_registry(sandbox_runner=_write_bash_runner(tmp_path / "runner.py"))
     (tmp_path / "pkg").mkdir()
 
     result = tools.get("bash").run(
@@ -651,6 +698,8 @@ def test_tool_registry_describes_tools() -> None:
     assert append_description["name"] == "append_file"
     assert append_description["required_permission"] == "workspace-write"
     assert append_description["parameters"]["required"] == ["path", "content"]
+    assert read_description["category"] == "filesystem"
+    assert read_description["sandbox_required"] is False
     assert diff_description["name"] == "diff_file"
     assert diff_description["required_permission"] == "read-only"
     assert diff_description["parameters"]["required"] == ["path", "old", "new"]
@@ -662,6 +711,8 @@ def test_tool_registry_describes_tools() -> None:
     assert "context_lines" in registry.describe("grep")["parameters"]["properties"]
     assert "case_sensitive" in registry.describe("grep")["parameters"]["properties"]
     assert "pattern" in registry.describe("grep")["parameters"]["properties"]
+    assert registry.describe("bash")["category"] == "execution"
+    assert registry.describe("bash")["sandbox_required"] is True
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]

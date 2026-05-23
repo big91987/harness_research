@@ -34,6 +34,7 @@ class DoctorReport:
         base_url: str | None,
         api_key: str | None,
         tools_count: int,
+        sandbox_runner: str | None = None,
     ) -> "DoctorReport":
         checks: dict[str, DoctorCheck] = {}
         for name, raw_path, is_file in (
@@ -48,6 +49,10 @@ class DoctorReport:
         ):
             checks[name] = _check_path(Path(raw_path).expanduser(), is_file=is_file)
         checks["tools"] = DoctorCheck(tools_count > 0, f"{tools_count} tools registered")
+        if sandbox_runner:
+            checks["sandbox_runner"] = DoctorCheck(True, "sandbox runner configured")
+        else:
+            checks["sandbox_runner"] = DoctorCheck(False, "missing sandbox runner for high-risk tools", "warn")
         if base_url and api_key:
             checks["model_config"] = DoctorCheck(True, "model endpoint configured")
         else:

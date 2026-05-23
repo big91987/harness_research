@@ -103,7 +103,7 @@ class AgentKernel:
                 session.messages.append(Message.assistant(final_text))
                 break
 
-            session.messages.append(Message.assistant(response.content, response.tool_calls))
+            session.messages.append(Message.assistant(response.content, response.tool_calls, metadata=response.metadata))
             if not response.tool_calls:
                 final_text = response.content
                 stop_reason = "final_answer"

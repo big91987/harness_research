@@ -48,8 +48,13 @@ class Message:
         return cls(role="user", content=content)
 
     @classmethod
-    def assistant(cls, content: str, tool_calls: list[ToolCall] | None = None) -> "Message":
-        return cls(role="assistant", content=content, tool_calls=tool_calls or [])
+    def assistant(
+        cls,
+        content: str,
+        tool_calls: list[ToolCall] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> "Message":
+        return cls(role="assistant", content=content, tool_calls=tool_calls or [], metadata=metadata or {})
 
     @classmethod
     def tool(cls, tool_call_id: str, name: str, content: str) -> "Message":
@@ -78,6 +83,7 @@ class ModelResponse:
     tool_calls: list[ToolCall] = field(default_factory=list)
     usage: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -86,4 +92,3 @@ class TurnResult:
     final_text: str
     iterations: int
     stop_reason: str
-

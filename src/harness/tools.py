@@ -226,11 +226,13 @@ def _edit_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     old = str(args["old"])
     new = str(args["new"])
+    replace_all = bool(args.get("replace_all", False))
     text = path.read_text(encoding="utf-8")
     if old not in text:
         return ToolResult("old text not found", is_error=True)
-    path.write_text(text.replace(old, new, 1), encoding="utf-8")
-    return ToolResult(f"edited {path.relative_to(workspace.root)}")
+    count = text.count(old) if replace_all else 1
+    path.write_text(text.replace(old, new, count), encoding="utf-8")
+    return ToolResult(f"edited {path.relative_to(workspace.root)} replacements: {count}")
 
 
 def _move_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
@@ -419,7 +421,12 @@ def default_tool_registry(
             "edit_file",
             "Replace the first occurrence of text in a workspace file.",
             _schema(
-                {"path": {"type": "string"}, "old": {"type": "string"}, "new": {"type": "string"}},
+                {
+                    "path": {"type": "string"},
+                    "old": {"type": "string"},
+                    "new": {"type": "string"},
+                    "replace_all": {"type": "boolean"},
+                },
                 ["path", "old", "new"],
             ),
             _edit_file,

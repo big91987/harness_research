@@ -109,6 +109,38 @@ def test_diff_file_reports_missing_old_text(tmp_path: Path) -> None:
     assert "old text not found" in result.output
 
 
+def test_edit_file_defaults_to_first_replacement(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "notes.txt").write_text("same\nsame\n", encoding="utf-8")
+
+    result = tools.get("edit_file").run(
+        {"path": "notes.txt", "old": "same", "new": "changed"},
+        workspace,
+        Policy(PermissionMode.WORKSPACE_WRITE),
+    )
+
+    assert not result.is_error
+    assert "replacements: 1" in result.output
+    assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "changed\nsame\n"
+
+
+def test_edit_file_can_replace_all_matches_when_requested(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "notes.txt").write_text("same\nsame\n", encoding="utf-8")
+
+    result = tools.get("edit_file").run(
+        {"path": "notes.txt", "old": "same", "new": "changed", "replace_all": True},
+        workspace,
+        Policy(PermissionMode.WORKSPACE_WRITE),
+    )
+
+    assert not result.is_error
+    assert "replacements: 2" in result.output
+    assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "changed\nchanged\n"
+
+
 def test_bash_requires_danger_permission(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -383,6 +415,7 @@ def test_tool_registry_describes_tools() -> None:
     assert diff_description["name"] == "diff_file"
     assert diff_description["required_permission"] == "read-only"
     assert diff_description["parameters"]["required"] == ["path", "old", "new"]
+    assert "replace_all" in registry.describe("edit_file")["parameters"]["properties"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]

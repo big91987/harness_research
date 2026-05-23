@@ -474,6 +474,12 @@ PYTHONPATH=src python3 -m harness.cli tools \
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --permission workspace-write \
+  --call edit_file \
+  --args-json '{"path":"out.txt","old":"ok","new":"OK","replace_all":true}'
+
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
+  --permission workspace-write \
   --call move_path \
   --args-json '{"source":"out.txt","destination":"archive/out.txt"}'
 

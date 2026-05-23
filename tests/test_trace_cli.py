@@ -12,6 +12,8 @@ def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
     trace.record("turn_start", session_id="s1")
     trace.record("tool_call", session_id="s1", name="read_file", is_error=False)
     trace.record("tool_call", session_id="s1", name="bash", is_error=True)
+    trace.record("checkpoint_created", session_id="s1", checkpoint_id="c1")
+    trace.record("checkpoint_restored", session_id="s1", checkpoint_id="c1")
     trace.record(
         "model_response",
         session_id="s1",
@@ -22,9 +24,11 @@ def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
 
     summary = TraceRecorder(path).summary()
 
-    assert summary["events"] == 5
+    assert summary["events"] == 7
     assert summary["tool_calls"] == 2
     assert summary["tool_errors"] == 1
+    assert summary["checkpoints"] == 1
+    assert summary["checkpoint_restores"] == 1
     assert summary["turns"] == 1
     assert summary["total_tokens"] == 15
     assert summary["cost_usd_micros"] == 123

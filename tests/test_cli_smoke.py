@@ -242,6 +242,66 @@ def test_cli_run_json_result_includes_checkpoint_restore(tmp_path: Path) -> None
     assert (workspace / "keep.txt").read_text(encoding="utf-8") == "before"
 
 
+def test_cli_run_records_checkpoint_lifecycle_in_trace(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "keep.txt").write_text("before", encoding="utf-8")
+    trace = tmp_path / "trace.jsonl"
+    script = _write_mock_response(
+        tmp_path,
+        [
+            {
+                "content": "writing risky change",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "name": "write_file",
+                        "arguments": {"path": "keep.txt", "content": "after"},
+                    }
+                ],
+            }
+        ],
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "risky edit",
+            "--workspace",
+            str(workspace),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(trace),
+            "--permission",
+            "workspace-write",
+            "--max-iterations",
+            "1",
+            "--checkpoint-before",
+            "--checkpoint-dir",
+            str(tmp_path / "checkpoints"),
+            "--restore-checkpoint-on-failure",
+            "--mock-responses",
+            str(script),
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+    created = [event for event in events if event["type"] == "checkpoint_created"]
+    restored = [event for event in events if event["type"] == "checkpoint_restored"]
+    assert created[0]["checkpoint_id"]
+    assert created[0]["manifest_path"].endswith("manifest.json")
+    assert restored[0]["checkpoint_id"] == created[0]["checkpoint_id"]
+    assert restored[0]["stop_reason"] == "max_iterations"
+
+
 def test_cli_run_keeps_changes_after_successful_checkpointed_run(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()

@@ -434,10 +434,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "run":
         config = _merged_config(args)
+        run_trace = TraceRecorder(config.trace)
         checkpoint = None
         if args.checkpoint_before or args.restore_checkpoint_on_failure:
             label = args.checkpoint_label or f"before-run-{args.prompt[:40]}"
             checkpoint = WorkspaceCheckpoint.create(config.workspace, args.checkpoint_dir, label=label)
+            run_trace.record(
+                "checkpoint_created",
+                checkpoint_id=checkpoint.id,
+                manifest_path=str(checkpoint.manifest_path),
+                label=checkpoint.label,
+                files=len(checkpoint.files),
+                workspace=config.workspace,
+            )
             if not args.json:
                 print(f"checkpoint: {checkpoint.id}")
                 print(f"checkpoint_manifest: {checkpoint.manifest_path}")
@@ -470,6 +479,13 @@ def main(argv: list[str] | None = None) -> int:
         ):
             WorkspaceCheckpoint.restore(checkpoint.manifest_path, config.workspace, clean=True)
             restored_checkpoint_id = checkpoint.id
+            run_trace.record(
+                "checkpoint_restored",
+                checkpoint_id=checkpoint.id,
+                manifest_path=str(checkpoint.manifest_path),
+                workspace=config.workspace,
+                stop_reason=result.stop_reason,
+            )
             if not args.json:
                 print(f"restored_checkpoint: {checkpoint.id}")
         if args.json:

@@ -80,6 +80,8 @@ def summarize_events(events: list[dict[str, Any]]) -> dict[str, int]:
             for event in events
             if event.get("type") == "tool_call" and bool(event.get("is_error"))
         ),
+        "checkpoints": sum(1 for event in events if event.get("type") == "checkpoint_created"),
+        "checkpoint_restores": sum(1 for event in events if event.get("type") == "checkpoint_restored"),
         "total_tokens": sum(
             canonical_usage(dict(event.get("usage") or {}))["total_tokens"]
             for event in events
@@ -116,6 +118,8 @@ def summarize_sessions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "model_calls": 0,
                 "tool_calls": 0,
                 "tool_errors": 0,
+                "checkpoints": 0,
+                "checkpoint_restores": 0,
                 "total_tokens": 0,
                 "cost_usd": 0.0,
                 "stop_reason": None,
@@ -143,6 +147,10 @@ def summarize_sessions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
             summary["tool_calls"] += 1
             if bool(event.get("is_error")):
                 summary["tool_errors"] += 1
+        elif event_type == "checkpoint_created":
+            summary["checkpoints"] += 1
+        elif event_type == "checkpoint_restored":
+            summary["checkpoint_restores"] += 1
     for summary in grouped.values():
         first_ts = summary.get("first_ts")
         last_ts = summary.get("last_ts")

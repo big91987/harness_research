@@ -12,6 +12,7 @@ from harness.context import ContextManager
 from harness.cost import ModelPricing, RuntimeBudget
 from harness.doctor import DoctorReport
 from harness.eval import EvalExpectation, evaluate_trace, run_golden_suite
+from harness.handoff import HandoffBuilder
 from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore
@@ -113,6 +114,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     replay = subparsers.add_parser("replay", help="Print trace events as a compact timeline.")
     replay.add_argument("--trace")
+
+    handoff = subparsers.add_parser("handoff", help="Render a markdown handoff for a session.")
+    handoff.add_argument("--session-dir")
+    handoff.add_argument("--task-dir")
+    handoff.add_argument("--trace")
+    handoff.add_argument("--session", required=True)
+    handoff.add_argument("--output")
 
     checkpoint = subparsers.add_parser("checkpoint", help="Create or restore workspace checkpoints.")
     checkpoint.add_argument("--workspace")
@@ -455,6 +463,28 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"turn_end {event.get('stop_reason')} {event.get('final_text')}")
             else:
                 print(str(event_type))
+        return 0
+    if args.command == "handoff":
+        config = _merged_config(args)
+        session = JsonlSessionStore(config.session_dir).load(args.session)
+        if session is None:
+            raise SystemExit(f"session not found: {args.session}")
+        task = None
+        task_id = session.metadata.get("task_id")
+        if task_id:
+            try:
+                task = TaskStore(config.task_dir).load(task_id)
+            except KeyError:
+                task = None
+        text = HandoffBuilder().render(
+            session=session,
+            task=task,
+            trace_summary=TraceRecorder(config.trace).summary(),
+        )
+        if args.output:
+            Path(args.output).expanduser().write_text(text, encoding="utf-8")
+        else:
+            print(text, end="")
         return 0
     if args.command == "checkpoint":
         config = _merged_config(args)

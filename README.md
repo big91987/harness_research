@@ -34,6 +34,7 @@ Implemented modules:
 - `harness.skills`: Markdown-backed skill registry, search, and prompt injection.
 - `harness.tasks`: local task ledger for long-running work and session association.
 - `harness.hooks`: local lifecycle command hooks for harness events.
+- `harness.handoff`: Markdown handoff generation for long-running session continuity.
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
 - `harness.cost`: canonical usage normalization and model cost estimation.
@@ -184,6 +185,20 @@ Replay a trace timeline:
 ```bash
 PYTHONPATH=src python3 -m harness.cli replay --trace /tmp/harness-trace.jsonl
 ```
+
+Render a handoff for the next session:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli handoff \
+  --session-dir /tmp/harness-sessions \
+  --task-dir /tmp/harness-tasks \
+  --trace /tmp/harness-trace.jsonl \
+  --session <session-id> \
+  --output /tmp/harness-handoff.md
+```
+
+The handoff includes task state, session usage/cost, trace summary, and recent
+messages so a later run can pick up the work with less manual reconstruction.
 
 Create and restore a workspace checkpoint:
 
@@ -341,6 +356,7 @@ Kernel failure behavior:
 - Session state also aggregates estimated cost when model pricing is configured.
 - Relevant Markdown skills are injected into the system context for each turn.
 - Local tasks track long-running work, inject active task context, and can be associated with agent sessions.
+- Handoff documents summarize active task, session, trace, and recent messages for continuity.
 - Runtime budget overruns stop the turn before additional tool calls execute.
 - Lifecycle hooks can observe `turn_start`, `tool_call`, and `turn_end` events.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.

@@ -7,6 +7,7 @@ __all__ = [
     "config",
     "doctor",
     "eval",
+    "handoff",
     "checkpoint",
     "kernel",
     "memory",

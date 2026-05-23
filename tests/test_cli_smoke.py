@@ -348,3 +348,77 @@ def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
     )
     assert "ship harness" in show.stdout
     assert f"session: {session_id}" in show.stdout
+
+
+def test_cli_handoff_renders_session_summary(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    session_dir = tmp_path / "sessions"
+    task_dir = tmp_path / "tasks"
+    task = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--add",
+            "handoff task",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    task_id = [line for line in task.stdout.splitlines() if line.startswith("task:")][0].split(":", 1)[1].strip()
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "make handoff",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(session_dir),
+            "--task-dir",
+            str(task_dir),
+            "--task-id",
+            task_id,
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--mock-final",
+            "handoff ready",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    session_id = [line for line in run.stdout.splitlines() if line.startswith("session:")][0].split(":", 1)[1].strip()
+
+    handoff = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "handoff",
+            "--session-dir",
+            str(session_dir),
+            "--task-dir",
+            str(task_dir),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--session",
+            session_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    assert "# Harness Handoff" in handoff.stdout
+    assert "handoff task" in handoff.stdout
+    assert "handoff ready" in handoff.stdout

@@ -276,6 +276,8 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     base = workspace.resolve(args.get("path") or ".")
     max_matches = int(args.get("max_matches") or 0)
     context_lines = int(args.get("context_lines") or 0)
+    case_sensitive = bool(args.get("case_sensitive", True))
+    needle = query if case_sensitive else query.lower()
     if max_matches < 0:
         return ToolResult("max_matches must be >= 0", is_error=True)
     if context_lines < 0:
@@ -291,7 +293,8 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
                 continue
             lines = path.read_text(encoding="utf-8").splitlines()
             for lineno, line in enumerate(lines, start=1):
-                if query in line:
+                haystack = line if case_sensitive else line.lower()
+                if needle in haystack:
                     rel = path.relative_to(workspace.root)
                     for index in range(max(1, lineno - context_lines), lineno):
                         matches.append(f"{rel}:{index}-{lines[index - 1]}")
@@ -495,6 +498,7 @@ def default_tool_registry(
                     "path": {"type": "string"},
                     "max_matches": {"type": "integer"},
                     "context_lines": {"type": "integer"},
+                    "case_sensitive": {"type": "boolean"},
                 },
                 ["query"],
             ),

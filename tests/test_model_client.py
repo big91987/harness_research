@@ -20,6 +20,23 @@ def test_openai_client_builds_chat_payload_without_leaking_key() -> None:
     assert "secret" not in str(payload)
 
 
+def test_openai_client_includes_optional_generation_parameters() -> None:
+    client = OpenAICompatibleModelClient(
+        base_url="https://example.com",
+        api_key="secret",
+        model="test-model",
+        temperature=0.2,
+        top_p=0.9,
+        max_tokens=512,
+    )
+
+    payload = client.build_payload([Message.user("hello")], [])
+
+    assert payload["temperature"] == 0.2
+    assert payload["top_p"] == 0.9
+    assert payload["max_tokens"] == 512
+
+
 def test_openai_client_reports_invalid_tool_arguments() -> None:
     client = OpenAICompatibleModelClient(
         base_url="https://example.com",

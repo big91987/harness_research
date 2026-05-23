@@ -29,6 +29,9 @@ class HarnessConfig:
     api_key: str | None = None
     model: str = "gpt-4.1-mini"
     model_timeout_seconds: int = 120
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
     permission: str = "read-only"
     allowed_tools: list[str] | None = None
     denied_tools: list[str] | None = None
@@ -71,6 +74,9 @@ class HarnessConfig:
             "OPENAI_API_KEY": "api_key",
             "HARNESS_MODEL": "model",
             "HARNESS_MODEL_TIMEOUT_SECONDS": "model_timeout_seconds",
+            "HARNESS_TEMPERATURE": "temperature",
+            "HARNESS_TOP_P": "top_p",
+            "HARNESS_MAX_TOKENS": "max_tokens",
             "HARNESS_PERMISSION": "permission",
             "HARNESS_ALLOWED_TOOLS": "allowed_tools",
             "HARNESS_DENIED_TOOLS": "denied_tools",
@@ -96,6 +102,7 @@ class HarnessConfig:
                 "default_bash_timeout_seconds",
                 "max_bash_timeout_seconds",
                 "max_total_tokens",
+                "max_tokens",
                 "max_model_retries",
                 "model_timeout_seconds",
             }:
@@ -104,6 +111,8 @@ class HarnessConfig:
                 "input_cost_per_million_tokens",
                 "output_cost_per_million_tokens",
                 "max_cost_usd",
+                "temperature",
+                "top_p",
             }:
                 setattr(self, attr, float(value))
             elif attr in {"allowed_tools", "denied_tools"}:
@@ -140,6 +149,12 @@ class HarnessConfig:
             issues.append(ConfigIssue("error", "max_total_tokens", "must be greater than or equal to 0"))
         if self.max_cost_usd is not None and self.max_cost_usd < 0:
             issues.append(ConfigIssue("error", "max_cost_usd", "must be greater than or equal to 0"))
+        if self.temperature is not None and self.temperature < 0:
+            issues.append(ConfigIssue("error", "temperature", "must be greater than or equal to 0"))
+        if self.top_p is not None and self.top_p < 0:
+            issues.append(ConfigIssue("error", "top_p", "must be greater than or equal to 0"))
+        if self.max_tokens is not None and self.max_tokens < 1:
+            issues.append(ConfigIssue("error", "max_tokens", "must be greater than or equal to 1"))
         if self.max_bash_timeout_seconds < self.default_bash_timeout_seconds:
             issues.append(
                 ConfigIssue(

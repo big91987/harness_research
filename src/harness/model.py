@@ -37,12 +37,21 @@ class OpenAICompatibleModelClient(ModelClient):
     api_key: str
     model: str
     timeout_seconds: int = 120
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
 
     def build_payload(self, messages: list[Message], tools: list[dict[str, Any]]) -> dict[str, Any]:
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [self._message_to_openai(message) for message in messages],
         }
+        if self.temperature is not None:
+            payload["temperature"] = self.temperature
+        if self.top_p is not None:
+            payload["top_p"] = self.top_p
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
         if tools:
             payload["tools"] = [self._tool_to_openai(tool) for tool in tools]
             payload["tool_choice"] = "auto"

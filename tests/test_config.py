@@ -19,6 +19,9 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "api_key": "from-config",
           "model": "config-model",
           "model_timeout_seconds": 9,
+          "temperature": 0.2,
+          "top_p": 0.9,
+          "max_tokens": 512,
           "permission": "workspace-write",
           "allowed_tools": ["read_file", "write_file"],
           "denied_tools": ["bash"],
@@ -38,6 +41,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     )
     monkeypatch.setenv("HARNESS_MODEL", "env-model")
     monkeypatch.setenv("HARNESS_MODEL_TIMEOUT_SECONDS", "11")
+    monkeypatch.setenv("HARNESS_TEMPERATURE", "0.3")
 
     config = HarnessConfig.load(config_path)
 
@@ -47,6 +51,9 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.hook_config == "hooks.json"
     assert config.model == "env-model"
     assert config.model_timeout_seconds == 11
+    assert config.temperature == 0.3
+    assert config.top_p == 0.9
+    assert config.max_tokens == 512
     assert config.permission == "workspace-write"
     assert config.allowed_tools == ["read_file", "write_file"]
     assert config.denied_tools == ["bash"]
@@ -73,6 +80,8 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_HOOK_CONFIG", "env-hooks.json")
     monkeypatch.setenv("HARNESS_MAX_MODEL_RETRIES", "3")
     monkeypatch.setenv("HARNESS_MODEL_TIMEOUT_SECONDS", "17")
+    monkeypatch.setenv("HARNESS_TOP_P", "0.75")
+    monkeypatch.setenv("HARNESS_MAX_TOKENS", "2048")
 
     config = HarnessConfig.load()
 
@@ -85,6 +94,8 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.hook_config == "env-hooks.json"
     assert config.max_model_retries == 3
     assert config.model_timeout_seconds == 17
+    assert config.top_p == 0.75
+    assert config.max_tokens == 2048
 
 
 def test_config_validate_reports_errors_and_warnings() -> None:
@@ -97,6 +108,9 @@ def test_config_validate_reports_errors_and_warnings() -> None:
         max_iterations=0,
         model_timeout_seconds=0,
         max_model_retries=-1,
+        temperature=-0.1,
+        top_p=-0.1,
+        max_tokens=0,
         default_bash_timeout_seconds=10,
         max_bash_timeout_seconds=5,
         max_cost_usd=-0.01,
@@ -110,6 +124,9 @@ def test_config_validate_reports_errors_and_warnings() -> None:
     assert "max_iterations" in errors
     assert "model_timeout_seconds" in errors
     assert "max_model_retries" in errors
+    assert "temperature" in errors
+    assert "top_p" in errors
+    assert "max_tokens" in errors
     assert "max_bash_timeout_seconds" in errors
     assert "max_cost_usd" in errors
     assert "tools" in errors

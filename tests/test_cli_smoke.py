@@ -503,6 +503,98 @@ def test_cli_skills_add_search_and_render(tmp_path: Path) -> None:
     )
     assert "Available skills:" in render.stdout
 
+    show = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "skills",
+            "--skill-dir",
+            str(skill_dir),
+            "--show",
+            "pytest-debug",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "Run pytest -q" in show.stdout
+
+    deleted = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "skills",
+            "--skill-dir",
+            str(skill_dir),
+            "--delete",
+            "pytest-debug",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "deleted: pytest-debug" in deleted.stdout
+
+
+def test_cli_memory_list_and_clear(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    memory_dir = tmp_path / "memory"
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "memory",
+            "--memory-dir",
+            str(memory_dir),
+            "--add",
+            "remember the kernel",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    listed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "memory",
+            "--memory-dir",
+            str(memory_dir),
+            "--list",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "- remember the kernel" in listed.stdout
+
+    cleared = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "memory",
+            "--memory-dir",
+            str(memory_dir),
+            "--clear",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "cleared" in cleared.stdout
+
 
 def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}

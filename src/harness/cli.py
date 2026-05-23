@@ -88,6 +88,8 @@ def build_parser() -> argparse.ArgumentParser:
     memory.add_argument("--memory-dir")
     memory.add_argument("--add")
     memory.add_argument("--search")
+    memory.add_argument("--list", action="store_true")
+    memory.add_argument("--clear", action="store_true")
 
     skills = subparsers.add_parser("skills", help="Add, search, or render local markdown skills.")
     skills.add_argument("--skill-dir")
@@ -96,6 +98,8 @@ def build_parser() -> argparse.ArgumentParser:
     skills.add_argument("--body")
     skills.add_argument("--body-file")
     skills.add_argument("--search")
+    skills.add_argument("--show")
+    skills.add_argument("--delete")
     skills.add_argument("--query")
 
     tasks = subparsers.add_parser("tasks", help="Create, update, list, and show local harness tasks.")
@@ -496,10 +500,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.add:
             memory.add(args.add)
             print("added")
+        if args.list:
+            for item in memory.list():
+                print(item)
+        if args.clear:
+            memory.clear()
+            print("cleared")
         if args.search:
             for item in memory.search(args.search):
                 print(item)
-        if not args.add and not args.search:
+        if not args.add and not args.search and not args.list and not args.clear:
             print(memory.render_context())
         return 0
     if args.command == "skills":
@@ -519,6 +529,20 @@ def main(argv: list[str] | None = None) -> int:
             for skill in skills.search(args.search):
                 suffix = f": {skill.description}" if skill.description else ""
                 print(f"{skill.name}{suffix}")
+            return 0
+        if args.show:
+            skill = skills.get(args.show)
+            if skill is None:
+                raise SystemExit(f"skill not found: {args.show}")
+            print(f"name: {skill.name}")
+            if skill.description:
+                print(f"description: {skill.description}")
+            print(skill.body)
+            return 0
+        if args.delete:
+            if not skills.delete(args.delete):
+                raise SystemExit(f"skill not found: {args.delete}")
+            print(f"deleted: {args.delete}")
             return 0
         print(skills.render_context(args.query or ""))
         return 0

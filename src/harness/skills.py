@@ -28,6 +28,19 @@ class SkillStore:
     def list(self) -> list[Skill]:
         return [self._read(path) for path in sorted(self.root.glob("*.md"))]
 
+    def get(self, name: str) -> Skill | None:
+        path = self.root / f"{_normalize_name(name)}.md"
+        if not path.exists():
+            return None
+        return self._read(path)
+
+    def delete(self, name: str) -> bool:
+        path = self.root / f"{_normalize_name(name)}.md"
+        if not path.exists():
+            return False
+        path.unlink()
+        return True
+
     def search(self, query: str, *, limit: int = 5) -> list[Skill]:
         terms = [term for term in re.split(r"\W+", query.lower()) if term]
         if not terms:

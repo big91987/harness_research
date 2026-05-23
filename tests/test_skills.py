@@ -30,3 +30,16 @@ def test_skill_store_sanitizes_names(tmp_path: Path) -> None:
 
     assert path.name == "bad-skill.md"
     assert path.parent == tmp_path.resolve()
+
+
+def test_skill_store_gets_and_deletes_skill(tmp_path: Path) -> None:
+    store = SkillStore(tmp_path)
+    store.add("Debug Tests", "Use pytest.", description="Debug Python tests")
+
+    skill = store.get("debug-tests")
+
+    assert skill.name == "debug-tests"
+    assert skill.body == "Use pytest."
+    assert store.delete("debug-tests")
+    assert store.get("debug-tests") is None
+    assert not store.delete("debug-tests")

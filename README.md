@@ -334,10 +334,34 @@ PYTHONPATH=src python3 -m harness.cli skills \
 PYTHONPATH=src python3 -m harness.cli skills \
   --skill-dir /tmp/harness-skills \
   --search python
+
+PYTHONPATH=src python3 -m harness.cli skills \
+  --skill-dir /tmp/harness-skills \
+  --show pytest-debug
+
+PYTHONPATH=src python3 -m harness.cli skills \
+  --skill-dir /tmp/harness-skills \
+  --delete pytest-debug
 ```
 
 Skills are stored as Markdown files and injected into the model context when they
 match the current user request.
+
+Maintain persistent memory:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli memory \
+  --memory-dir /tmp/harness-memory \
+  --add "Prefer focused pytest runs before full verify."
+
+PYTHONPATH=src python3 -m harness.cli memory \
+  --memory-dir /tmp/harness-memory \
+  --list
+
+PYTHONPATH=src python3 -m harness.cli memory \
+  --memory-dir /tmp/harness-memory \
+  --clear
+```
 
 Manage long-running tasks:
 

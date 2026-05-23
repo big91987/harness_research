@@ -134,6 +134,44 @@ def test_kernel_handles_unknown_tool_as_recoverable_tool_error(tmp_path: Path) -
     assert "tool_error" in (tmp_path / "trace.jsonl").read_text()
 
 
+def test_kernel_can_fail_fast_after_tool_error(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    trace = TraceRecorder(tmp_path / "trace.jsonl")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="calling mixed tools",
+                tool_calls=[
+                    ToolCall(id="call-1", name="missing_tool", arguments={}),
+                    ToolCall(
+                        id="call-2",
+                        name="write_file",
+                        arguments={"path": "should-not-exist.txt", "content": "bad"},
+                    ),
+                ],
+            ),
+            ModelResponse(content="saw failure"),
+        ]
+    )
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.WORKSPACE_WRITE),
+        trace=trace,
+        fail_fast_on_tool_error=True,
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "use mixed tools")
+
+    assert result.stop_reason == "final_answer"
+    assert not (workspace.root / "should-not-exist.txt").exists()
+    trace_text = (tmp_path / "trace.jsonl").read_text()
+    assert '"tool_batch_aborted"' in trace_text
+    assert trace_text.count('"tool_call"') == 1
+
+
 def test_kernel_records_model_error_and_returns_failure(tmp_path: Path) -> None:
     class BrokenModel(FakeModelClient):
         def generate(self, messages, tools):  # noqa: ANN001

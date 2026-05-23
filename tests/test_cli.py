@@ -26,6 +26,7 @@ def test_cli_parser_accepts_run_options(tmp_path: Path) -> None:
             "python3 /tmp/runner.py",
             "--tool-profile",
             "safe",
+            "--fail-fast-on-tool-error",
             "--base-url",
             "https://example.com",
         ]
@@ -37,6 +38,7 @@ def test_cli_parser_accepts_run_options(tmp_path: Path) -> None:
     assert args.model_timeout_seconds == 7
     assert args.sandbox_runner == "python3 /tmp/runner.py"
     assert args.tool_profile == "safe"
+    assert args.fail_fast_on_tool_error is True
 
 
 def test_cli_tools_can_show_schema_and_emit_json() -> None:

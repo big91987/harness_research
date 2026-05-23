@@ -41,6 +41,7 @@ class AgentKernel:
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     max_iterations: int = 20
     max_model_retries: int = 0
+    fail_fast_on_tool_error: bool = False
 
     def run_turn(self, session: Session, user_input: str) -> TurnResult:
         trace = self.trace or TraceRecorder()
@@ -142,6 +143,14 @@ class AgentKernel:
                 session.messages.append(Message.tool(call.id, call.name, result.output))
                 if result.is_error:
                     trace.record("tool_error", session_id=session.id, name=call.name, output=result.output)
+                    if self.fail_fast_on_tool_error:
+                        trace.record(
+                            "tool_batch_aborted",
+                            session_id=session.id,
+                            name=call.name,
+                            reason="tool_error",
+                        )
+                        break
 
             self.store.save(session)
 

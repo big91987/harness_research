@@ -41,6 +41,7 @@ class HarnessConfig:
     default_bash_timeout_seconds: int = 30
     max_bash_timeout_seconds: int = 120
     sandbox_runner: str | None = None
+    fail_fast_on_tool_error: bool = False
     max_iterations: int = 20
     max_model_retries: int = 0
     input_cost_per_million_tokens: float = 0.0
@@ -88,6 +89,7 @@ class HarnessConfig:
             "HARNESS_DEFAULT_BASH_TIMEOUT_SECONDS": "default_bash_timeout_seconds",
             "HARNESS_MAX_BASH_TIMEOUT_SECONDS": "max_bash_timeout_seconds",
             "HARNESS_SANDBOX_RUNNER": "sandbox_runner",
+            "HARNESS_FAIL_FAST_ON_TOOL_ERROR": "fail_fast_on_tool_error",
             "HARNESS_MAX_ITERATIONS": "max_iterations",
             "HARNESS_MAX_MODEL_RETRIES": "max_model_retries",
             "HARNESS_INPUT_COST_PER_MILLION_TOKENS": "input_cost_per_million_tokens",
@@ -121,6 +123,8 @@ class HarnessConfig:
                 setattr(self, attr, float(value))
             elif attr in {"allowed_tools", "denied_tools"}:
                 setattr(self, attr, [item.strip() for item in value.split(",") if item.strip()])
+            elif attr == "fail_fast_on_tool_error":
+                setattr(self, attr, value.strip().lower() in {"1", "true", "yes", "on"})
             else:
                 setattr(self, attr, value)
 

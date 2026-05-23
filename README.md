@@ -656,6 +656,7 @@ Kernel failure behavior:
 - Local tasks track long-running work, inject active task context, auto-update from run results, and can be associated with agent sessions.
 - Handoff documents summarize active task, session, trace, and recent messages for continuity.
 - Runtime budget overruns stop the turn before additional tool calls execute.
+- `--fail-fast-on-tool-error` stops the current batch of parallel tool calls after the first tool error and records `tool_batch_aborted`.
 - Lifecycle hooks can observe `turn_start`, `tool_call`, and `turn_end` events.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.

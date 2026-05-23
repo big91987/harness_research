@@ -122,6 +122,56 @@ def test_cli_run_with_mock_tool_script(tmp_path: Path) -> None:
     assert (workspace / "out.txt").read_text() == "ok"
 
 
+def test_cli_run_can_fail_fast_on_tool_error(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    script = _write_mock_response(
+        tmp_path,
+        [
+            {
+                "content": "try mixed tools",
+                "tool_calls": [
+                    {"id": "call-1", "name": "missing_tool", "arguments": {}},
+                    {
+                        "id": "call-2",
+                        "name": "write_file",
+                        "arguments": {"path": "should-not-exist.txt", "content": "bad"},
+                    },
+                ],
+            },
+            {"content": "saw failure"},
+        ],
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "try mixed tools",
+            "--workspace",
+            str(workspace),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--permission",
+            "workspace-write",
+            "--fail-fast-on-tool-error",
+            "--mock-responses",
+            str(script),
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert "saw failure" in result.stdout
+    assert not (workspace / "should-not-exist.txt").exists()
+    assert '"tool_batch_aborted"' in (tmp_path / "trace.jsonl").read_text(encoding="utf-8")
+
+
 def test_cli_run_can_restore_checkpoint_on_failure(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()

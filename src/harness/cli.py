@@ -65,6 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-total-tokens", type=int)
     run.add_argument("--max-cost-usd", type=float)
     run.add_argument("--sandbox-runner")
+    run.add_argument("--fail-fast-on-tool-error", action="store_true", default=None)
     run.add_argument("--checkpoint-before", action="store_true")
     run.add_argument("--checkpoint-dir", default=".harness/checkpoints")
     run.add_argument("--checkpoint-label", default="")
@@ -303,6 +304,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         ),
         max_iterations=config.max_iterations,
         max_model_retries=config.max_model_retries,
+        fail_fast_on_tool_error=config.fail_fast_on_tool_error,
     )
     return kernel, session
 
@@ -335,6 +337,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "default_bash_timeout_seconds",
         "max_bash_timeout_seconds",
         "sandbox_runner",
+        "fail_fast_on_tool_error",
         "max_iterations",
         "max_model_retries",
         "input_cost_per_million_tokens",

@@ -236,6 +236,11 @@ PYTHONPATH=src python3 -m harness.cli replay \
   --trace /tmp/harness-trace.jsonl \
   --session <session-id> \
   --limit 20
+
+PYTHONPATH=src python3 -m harness.cli trace \
+  --trace /tmp/harness-trace.jsonl \
+  --sessions \
+  --failures-only
 ```
 
 Render a handoff for the next session:

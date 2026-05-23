@@ -58,6 +58,16 @@ class TraceQuery:
     def summary(self, *, session_id: str | None = None, event_type: str | None = None) -> dict[str, int]:
         return summarize_events(self.events(session_id=session_id, event_type=event_type))
 
+    def sessions(self, *, failures_only: bool = False) -> list[dict[str, Any]]:
+        summaries = summarize_sessions(self.recorder.read_events())
+        if failures_only:
+            summaries = [
+                summary
+                for summary in summaries
+                if summary.get("stop_reason") not in {None, "final_answer"} or summary.get("tool_errors", 0) > 0
+            ]
+        return summaries
+
 
 def summarize_events(events: list[dict[str, Any]]) -> dict[str, int]:
     return {
@@ -86,3 +96,57 @@ def summarize_events(events: list[dict[str, Any]]) -> dict[str, int]:
             )
         ),
     }
+
+
+def summarize_sessions(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for event in events:
+        session_id = event.get("session_id")
+        if not session_id:
+            continue
+        summary = grouped.setdefault(
+            str(session_id),
+            {
+                "session_id": str(session_id),
+                "first_ts": event.get("ts"),
+                "last_ts": event.get("ts"),
+                "duration_seconds": 0.0,
+                "events": 0,
+                "turns": 0,
+                "model_calls": 0,
+                "tool_calls": 0,
+                "tool_errors": 0,
+                "total_tokens": 0,
+                "cost_usd": 0.0,
+                "stop_reason": None,
+                "final_text": "",
+            },
+        )
+        summary["events"] += 1
+        ts = event.get("ts")
+        if isinstance(ts, (int, float)):
+            if summary["first_ts"] is None or ts < summary["first_ts"]:
+                summary["first_ts"] = ts
+            if summary["last_ts"] is None or ts > summary["last_ts"]:
+                summary["last_ts"] = ts
+        event_type = event.get("type")
+        if event_type == "turn_end":
+            summary["turns"] += 1
+            summary["stop_reason"] = event.get("stop_reason")
+            summary["final_text"] = str(event.get("final_text") or "")
+        elif event_type == "model_call":
+            summary["model_calls"] += 1
+        elif event_type == "model_response":
+            summary["total_tokens"] += canonical_usage(dict(event.get("usage") or {}))["total_tokens"]
+            summary["cost_usd"] += float(event.get("cost_usd") or 0.0)
+        elif event_type == "tool_call":
+            summary["tool_calls"] += 1
+            if bool(event.get("is_error")):
+                summary["tool_errors"] += 1
+    for summary in grouped.values():
+        first_ts = summary.get("first_ts")
+        last_ts = summary.get("last_ts")
+        if isinstance(first_ts, (int, float)) and isinstance(last_ts, (int, float)):
+            summary["duration_seconds"] = max(0.0, last_ts - first_ts)
+        summary["cost_usd"] = round(float(summary["cost_usd"]), 12)
+    return sorted(grouped.values(), key=lambda summary: (summary.get("first_ts") or 0, summary["session_id"]))

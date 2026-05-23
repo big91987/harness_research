@@ -111,6 +111,8 @@ def build_parser() -> argparse.ArgumentParser:
     trace.add_argument("--session")
     trace.add_argument("--type", dest="event_type")
     trace.add_argument("--limit", type=int)
+    trace.add_argument("--sessions", action="store_true")
+    trace.add_argument("--failures-only", action="store_true")
     trace.add_argument("--json", action="store_true")
 
     eval_cmd = subparsers.add_parser("eval", help="Evaluate a trace JSONL file.")
@@ -545,6 +547,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "trace":
         config = _merged_config(args)
         query = TraceQuery(TraceRecorder(config.trace))
+        if args.sessions:
+            sessions = query.sessions(failures_only=args.failures_only)
+            if args.session:
+                sessions = [session for session in sessions if session["session_id"] == args.session]
+            if args.limit is not None:
+                sessions = sessions[-args.limit:]
+            if args.json:
+                print(json.dumps(sessions, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            for session in sessions:
+                print(
+                    f"{session['session_id']} {session.get('stop_reason')} "
+                    f"turns={session['turns']} model_calls={session['model_calls']} "
+                    f"tool_calls={session['tool_calls']} tool_errors={session['tool_errors']} "
+                    f"tokens={session['total_tokens']} cost_usd={session['cost_usd']:.6f}"
+                )
+            return 0
         if args.json:
             print(json.dumps(
                 query.events(session_id=args.session, event_type=args.event_type, limit=args.limit),

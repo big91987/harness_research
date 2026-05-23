@@ -208,10 +208,12 @@ def _diff_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     old = str(args["old"])
     new = str(args["new"])
+    replace_all = bool(args.get("replace_all", False))
     text = path.read_text(encoding="utf-8")
     if old not in text:
         return ToolResult("old text not found", is_error=True)
-    updated = text.replace(old, new, 1)
+    count = text.count(old) if replace_all else 1
+    updated = text.replace(old, new, count)
     rel = path.relative_to(workspace.root).as_posix()
     diff = difflib.unified_diff(
         text.splitlines(keepends=True),
@@ -409,6 +411,7 @@ def default_tool_registry(
                     "path": {"type": "string"},
                     "old": {"type": "string"},
                     "new": {"type": "string"},
+                    "replace_all": {"type": "boolean"},
                 },
                 ["path", "old", "new"],
             ),

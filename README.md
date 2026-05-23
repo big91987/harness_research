@@ -469,7 +469,7 @@ PYTHONPATH=src python3 -m harness.cli tools \
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --call diff_file \
-  --args-json '{"path":"out.txt","old":"ok","new":"OK"}'
+  --args-json '{"path":"out.txt","old":"ok","new":"OK","replace_all":true}'
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \

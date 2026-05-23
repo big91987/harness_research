@@ -94,6 +94,23 @@ def test_diff_file_previews_replacement_without_modifying_file(tmp_path: Path) -
     assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "one\ntwo\nthree\n"
 
 
+def test_diff_file_can_preview_all_replacements_when_requested(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "notes.txt").write_text("same\nsame\n", encoding="utf-8")
+
+    result = tools.get("diff_file").run(
+        {"path": "notes.txt", "old": "same", "new": "changed", "replace_all": True},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert not result.is_error
+    assert result.output.count("-same") == 2
+    assert result.output.count("+changed") == 2
+    assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "same\nsame\n"
+
+
 def test_diff_file_reports_missing_old_text(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -415,6 +432,7 @@ def test_tool_registry_describes_tools() -> None:
     assert diff_description["name"] == "diff_file"
     assert diff_description["required_permission"] == "read-only"
     assert diff_description["parameters"]["required"] == ["path", "old", "new"]
+    assert "replace_all" in diff_description["parameters"]["properties"]
     assert "replace_all" in registry.describe("edit_file")["parameters"]["properties"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"

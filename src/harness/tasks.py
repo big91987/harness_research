@@ -105,6 +105,20 @@ class TaskStore:
         self._write(tasks)
         return task
 
+    def render_context(self, task_id: str) -> str:
+        task = self.load(task_id)
+        lines = [
+            "Active task:",
+            f"- id: {task.id}",
+            f"- title: {task.title}",
+            f"- status: {task.status}",
+        ]
+        if task.description:
+            lines.append(f"- description: {task.description}")
+        if task.session_id:
+            lines.append(f"- session: {task.session_id}")
+        return "\n".join(lines)
+
     def _read(self) -> dict[str, Task]:
         data = json.loads(self.path.read_text(encoding="utf-8"))
         return {task_id: Task.from_dict(item) for task_id, item in data.items()}

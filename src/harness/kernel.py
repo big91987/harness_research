@@ -34,6 +34,7 @@ class AgentKernel:
     audit: AuditLog | None = None
     memory: MarkdownMemoryStore | None = None
     skills: SkillStore | None = None
+    task_context: str = ""
     hooks: HookRunnerProtocol | None = None
     pricing: ModelPricing = ModelPricing()
     budget: RuntimeBudget = RuntimeBudget()
@@ -61,6 +62,8 @@ class AgentKernel:
                 skill_context = self.skills.render_context(user_input)
                 if skill_context:
                     prompt_messages.append(Message.system(skill_context))
+            if self.task_context:
+                prompt_messages.append(Message.system(self.task_context))
             prompt_messages.extend(context.prepare(session.messages))
 
             trace.record("model_call", session_id=session.id, iteration=iterations)

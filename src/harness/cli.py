@@ -180,6 +180,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         audit=AuditLog(config.audit),
         memory=MarkdownMemoryStore(config.memory_dir),
         skills=SkillStore(config.skill_dir),
+        task_context=_task_context(config, getattr(args, "task_id", None)),
         hooks=HookRunner.from_config(config.hook_config, cwd=workspace.root),
         pricing=ModelPricing(
             input_cost_per_million_tokens=config.input_cost_per_million_tokens,
@@ -258,6 +259,15 @@ def _load_mock_responses(path: str | Path) -> list[ModelResponse]:
             )
         )
     return responses
+
+
+def _task_context(config: HarnessConfig, task_id: str | None) -> str:
+    if not task_id:
+        return ""
+    try:
+        return TaskStore(config.task_dir).render_context(task_id)
+    except KeyError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def _print_task(task) -> None:  # noqa: ANN001 - keep CLI formatting decoupled from task dataclass.

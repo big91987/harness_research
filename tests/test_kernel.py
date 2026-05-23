@@ -283,6 +283,33 @@ def test_kernel_injects_relevant_skill_context(tmp_path: Path) -> None:
     assert "pytest-debug" in system_text
 
 
+def test_kernel_injects_active_task_context(tmp_path: Path) -> None:
+    class CapturingModel(FakeModelClient):
+        captured = []
+
+        def generate(self, messages, tools):  # noqa: ANN001
+            self.captured = messages
+            return super().generate(messages, tools)
+
+    workspace = Workspace(tmp_path / "ws")
+    model = CapturingModel([ModelResponse(content="ok")])
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        task_context="Active task:\n- title: ship harness\n- status: in_progress",
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "continue")
+
+    assert result.stop_reason == "final_answer"
+    system_text = "\n".join(message.content for message in model.captured if message.role == "system")
+    assert "Active task:" in system_text
+    assert "ship harness" in system_text
+
+
 def test_kernel_policy_denies_disallowed_tool_and_audits(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path / "ws")
     audit = AuditLog(tmp_path / "audit.jsonl")

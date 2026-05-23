@@ -248,8 +248,9 @@ PYTHONPATH=src python3 -m harness.cli run "continue work" \
   --mock-final "checkpoint complete"
 ```
 
-`run --task-id` marks the task `in_progress` and records the session id on the task,
-so follow-up turns and future server APIs have a stable state anchor.
+`run --task-id` marks the task `in_progress`, records the session id on the task,
+and injects the active task into the model context. Follow-up turns and future
+server APIs therefore have both a stable state anchor and task-aware prompts.
 
 Configure lifecycle hooks:
 
@@ -339,7 +340,7 @@ Kernel failure behavior:
 - Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
 - Session state also aggregates estimated cost when model pricing is configured.
 - Relevant Markdown skills are injected into the system context for each turn.
-- Local tasks track long-running work and can be associated with agent sessions.
+- Local tasks track long-running work, inject active task context, and can be associated with agent sessions.
 - Runtime budget overruns stop the turn before additional tool calls execute.
 - Lifecycle hooks can observe `turn_start`, `tool_call`, and `turn_end` events.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.

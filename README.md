@@ -478,6 +478,12 @@ PYTHONPATH=src python3 -m harness.cli tools \
   --call delete_path \
   --args-json '{"path":"archive","recursive":true}'
 
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
+  --permission danger \
+  --call bash \
+  --args-json '{"command":"printf \"$HARNESS_MODE\"","env":{"HARNESS_MODE":"local"}}'
+
 PYTHONPATH=src python3 -m harness.cli run "inspect only" \
   --permission danger \
   --allow-tool read_file \

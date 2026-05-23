@@ -223,6 +223,23 @@ def test_bash_timeout_is_clamped(tmp_path: Path) -> None:
     assert "timed out" in result.output
 
 
+def test_bash_accepts_structured_environment_variables(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("bash").run(
+        {
+            "command": "printf \"$HARNESS_TEST_VALUE\"",
+            "env": {"HARNESS_TEST_VALUE": "from-env"},
+        },
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert not result.is_error
+    assert result.output == "from-env"
+
+
 def test_tool_reports_missing_required_argument(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -259,6 +276,20 @@ def test_tool_reports_boolean_argument_type_errors(tmp_path: Path) -> None:
 
     assert result.is_error
     assert "argument recursive must be boolean" in result.output
+
+
+def test_tool_reports_object_argument_type_errors(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("bash").run(
+        {"command": "printf ok", "env": "HARNESS_TEST_VALUE=x"},
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert result.is_error
+    assert "argument env must be object" in result.output
 
 
 def test_tool_reports_non_object_arguments(tmp_path: Path) -> None:

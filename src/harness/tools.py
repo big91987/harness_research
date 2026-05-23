@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fnmatch
+import os
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -75,6 +76,8 @@ class Tool:
                 return f"argument {name} must be integer"
             if expected_type == "boolean" and not isinstance(value, bool):
                 return f"argument {name} must be boolean"
+            if expected_type == "object" and not isinstance(value, dict):
+                return f"argument {name} must be object"
         return ""
 
     def _limit(self, result: ToolResult) -> ToolResult:
@@ -265,6 +268,8 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
 
 def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     command = str(args["command"])
+    extra_env = {str(key): str(value) for key, value in dict(args.get("env") or {}).items()}
+    env = {**os.environ, **extra_env}
     default_timeout = int(args.get("_default_bash_timeout_seconds") or DEFAULT_BASH_TIMEOUT_SECONDS)
     max_timeout = int(args.get("_max_bash_timeout_seconds") or DEFAULT_MAX_BASH_TIMEOUT_SECONDS)
     requested_timeout = int(args.get("timeout_seconds") or default_timeout)
@@ -277,6 +282,7 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
             text=True,
             capture_output=True,
             timeout=timeout,
+            env=env,
             check=False,
         )
     except subprocess.TimeoutExpired:
@@ -423,7 +429,11 @@ def default_tool_registry(
             "bash",
             "Run a shell command in the workspace.",
             _schema(
-                {"command": {"type": "string"}, "timeout_seconds": {"type": "integer"}},
+                {
+                    "command": {"type": "string"},
+                    "timeout_seconds": {"type": "integer"},
+                    "env": {"type": "object"},
+                },
                 ["command"],
             ),
             bash_handler,

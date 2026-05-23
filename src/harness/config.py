@@ -28,6 +28,7 @@ class HarnessConfig:
     base_url: str | None = None
     api_key: str | None = None
     model: str = "gpt-4.1-mini"
+    model_timeout_seconds: int = 120
     permission: str = "read-only"
     allowed_tools: list[str] | None = None
     denied_tools: list[str] | None = None
@@ -69,6 +70,7 @@ class HarnessConfig:
             "HARNESS_API_KEY": "api_key",
             "OPENAI_API_KEY": "api_key",
             "HARNESS_MODEL": "model",
+            "HARNESS_MODEL_TIMEOUT_SECONDS": "model_timeout_seconds",
             "HARNESS_PERMISSION": "permission",
             "HARNESS_ALLOWED_TOOLS": "allowed_tools",
             "HARNESS_DENIED_TOOLS": "denied_tools",
@@ -95,6 +97,7 @@ class HarnessConfig:
                 "max_bash_timeout_seconds",
                 "max_total_tokens",
                 "max_model_retries",
+                "model_timeout_seconds",
             }:
                 setattr(self, attr, int(value))
             elif attr in {
@@ -126,6 +129,7 @@ class HarnessConfig:
                     "default_bash_timeout_seconds": (self.default_bash_timeout_seconds, 1),
                     "max_bash_timeout_seconds": (self.max_bash_timeout_seconds, 1),
                     "max_iterations": (self.max_iterations, 1),
+                    "model_timeout_seconds": (self.model_timeout_seconds, 1),
                     "max_model_retries": (self.max_model_retries, 0),
                     "input_cost_per_million_tokens": (self.input_cost_per_million_tokens, 0),
                     "output_cost_per_million_tokens": (self.output_cost_per_million_tokens, 0),

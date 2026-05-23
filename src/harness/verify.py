@@ -127,6 +127,7 @@ def _run_live_smoke(root: Path, work_dir: Path, env: dict[str, str], config: Har
         "HARNESS_BASE_URL": config.base_url,
         "HARNESS_API_KEY": config.api_key,
         "HARNESS_MODEL": config.model,
+        "HARNESS_MODEL_TIMEOUT_SECONDS": str(config.model_timeout_seconds),
     }
     command = [
         sys.executable,
@@ -145,5 +146,7 @@ def _run_live_smoke(root: Path, work_dir: Path, env: dict[str, str], config: Har
         "--max-iterations",
         "1",
     ]
-    return _run("live_smoke", command, root, live_env)
-
+    result = _run("live_smoke", command, root, live_env)
+    if result.passed and "live-smoke-ok" not in result.output:
+        return VerifyResult("live_smoke", False, result.output + "\nexpected live-smoke-ok in output")
+    return result

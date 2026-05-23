@@ -20,6 +20,8 @@ def test_cli_parser_accepts_run_options(tmp_path: Path) -> None:
             str(tmp_path / "trace.jsonl"),
             "--model",
             "test-model",
+            "--model-timeout-seconds",
+            "7",
             "--base-url",
             "https://example.com",
         ]
@@ -28,6 +30,7 @@ def test_cli_parser_accepts_run_options(tmp_path: Path) -> None:
     assert args.command == "run"
     assert args.prompt == "hello"
     assert args.workspace == str(tmp_path)
+    assert args.model_timeout_seconds == 7
 
 
 def test_cli_tools_can_show_schema_and_emit_json() -> None:

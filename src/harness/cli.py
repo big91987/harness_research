@@ -52,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--base-url")
     run.add_argument("--api-key")
     run.add_argument("--model")
+    run.add_argument("--model-timeout-seconds", type=int)
     run.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
     run.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
     run.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
@@ -217,6 +218,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
             base_url=_require(config.base_url, "--base-url, config base_url, or HARNESS_BASE_URL"),
             api_key=_require(config.api_key, "--api-key, config api_key, or HARNESS_API_KEY"),
             model=config.model,
+            timeout_seconds=config.model_timeout_seconds,
         )
     kernel = AgentKernel(
         model=model,
@@ -271,6 +273,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "base_url",
         "api_key",
         "model",
+        "model_timeout_seconds",
         "permission",
         "allowed_tools",
         "denied_tools",

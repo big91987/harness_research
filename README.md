@@ -153,6 +153,7 @@ Config-driven run:
   "task_dir": "/tmp/harness-tasks",
   "hook_config": "/tmp/harness-hooks.json",
   "permission": "workspace-write",
+  "model_timeout_seconds": 120,
   "input_cost_per_million_tokens": 0.0,
   "output_cost_per_million_tokens": 0.0,
   "max_total_tokens": 100000,
@@ -410,13 +411,15 @@ Configure resource limits in `harness.json`:
   "max_file_read_bytes": 1000000,
   "default_bash_timeout_seconds": 30,
   "max_bash_timeout_seconds": 120,
+  "model_timeout_seconds": 120,
   "max_model_retries": 1
 }
 ```
 
 These limits protect the active context from large files, binary files, long-running
-commands, and transient model failures. `HARNESS_MAX_MODEL_RETRIES` overrides the
-JSON value.
+commands, slow model providers, and transient model failures.
+`HARNESS_MODEL_TIMEOUT_SECONDS` and `HARNESS_MAX_MODEL_RETRIES` override the JSON
+values.
 
 Configure cost tracking in `harness.json` or environment variables:
 

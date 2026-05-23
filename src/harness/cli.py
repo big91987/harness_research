@@ -25,7 +25,7 @@ from harness.session import JsonlSessionStore, Session
 from harness.skills import SkillStore
 from harness.tasks import TaskStatus, TaskStore
 from harness.tools import default_tool_registry
-from harness.trace import TraceRecorder
+from harness.trace import TraceQuery, TraceRecorder
 from harness.verify import VerifyOptions, run_verify
 from harness.workspace import Workspace
 
@@ -89,6 +89,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
     trace.add_argument("--trace")
+    trace.add_argument("--session")
+    trace.add_argument("--type", dest="event_type")
+    trace.add_argument("--limit", type=int)
+    trace.add_argument("--json", action="store_true")
 
     eval_cmd = subparsers.add_parser("eval", help="Evaluate a trace JSONL file.")
     eval_cmd.add_argument("--trace")
@@ -114,6 +118,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     replay = subparsers.add_parser("replay", help="Print trace events as a compact timeline.")
     replay.add_argument("--trace")
+    replay.add_argument("--session")
+    replay.add_argument("--type", dest="event_type")
+    replay.add_argument("--limit", type=int)
 
     handoff = subparsers.add_parser("handoff", help="Render a markdown handoff for a session.")
     handoff.add_argument("--session-dir")
@@ -391,7 +398,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "trace":
         config = _merged_config(args)
-        summary = TraceRecorder(config.trace).summary()
+        query = TraceQuery(TraceRecorder(config.trace))
+        if args.json:
+            print(json.dumps(
+                query.events(session_id=args.session, event_type=args.event_type, limit=args.limit),
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            ))
+            return 0
+        summary = query.summary(session_id=args.session, event_type=args.event_type)
         for key, value in summary.items():
             print(f"{key}: {value}")
         return 0
@@ -452,7 +468,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "replay":
         config = _merged_config(args)
-        for event in TraceRecorder(config.trace).read_events():
+        query = TraceQuery(TraceRecorder(config.trace))
+        for event in query.events(session_id=args.session, event_type=args.event_type, limit=args.limit):
             event_type = event.get("type")
             if event_type == "turn_start":
                 print(f"turn_start {event.get('session_id')} {event.get('user_input')}")

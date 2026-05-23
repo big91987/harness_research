@@ -186,6 +186,21 @@ Replay a trace timeline:
 PYTHONPATH=src python3 -m harness.cli replay --trace /tmp/harness-trace.jsonl
 ```
 
+Filter trace data during debugging:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli trace \
+  --trace /tmp/harness-trace.jsonl \
+  --session <session-id> \
+  --type tool_call \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli replay \
+  --trace /tmp/harness-trace.jsonl \
+  --session <session-id> \
+  --limit 20
+```
+
 Render a handoff for the next session:
 
 ```bash

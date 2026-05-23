@@ -3,7 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from harness.trace import TraceRecorder
+from harness.trace import TraceQuery, TraceRecorder
 
 
 def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
@@ -30,6 +30,23 @@ def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
     assert summary["cost_usd_micros"] == 123
 
 
+def test_trace_query_filters_by_session_type_and_limit(tmp_path: Path) -> None:
+    path = tmp_path / "trace.jsonl"
+    trace = TraceRecorder(path)
+    trace.record("turn_start", session_id="s1")
+    trace.record("tool_call", session_id="s1", name="read_file", is_error=False)
+    trace.record("tool_call", session_id="s2", name="bash", is_error=True)
+    trace.record("turn_end", session_id="s1", stop_reason="final_answer")
+
+    events = TraceQuery(TraceRecorder(path)).events(session_id="s1", event_type="tool_call", limit=1)
+    summary = TraceQuery(TraceRecorder(path)).summary(session_id="s1")
+
+    assert len(events) == 1
+    assert events[0]["name"] == "read_file"
+    assert summary["events"] == 3
+    assert summary["tool_errors"] == 0
+
+
 def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:
     trace = tmp_path / "trace.jsonl"
     TraceRecorder(trace).record("turn_end", session_id="s1", stop_reason="final_answer")
@@ -52,6 +69,36 @@ def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:
     )
     assert "workspace:" in doctor_result.stdout
     assert "tools: ok - 6 tools registered" in doctor_result.stdout
+
+
+def test_cli_trace_can_filter_and_emit_json(tmp_path: Path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    recorder = TraceRecorder(trace)
+    recorder.record("tool_call", session_id="s1", name="read_file", is_error=False)
+    recorder.record("tool_call", session_id="s2", name="bash", is_error=True)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "trace",
+            "--trace",
+            str(trace),
+            "--session",
+            "s1",
+            "--type",
+            "tool_call",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert '"session_id": "s1"' in result.stdout
+    assert '"session_id": "s2"' not in result.stdout
 
 
 def test_cli_eval_command_passes_and_fails(tmp_path: Path) -> None:
@@ -109,7 +156,7 @@ def test_cli_replay_prints_trace_timeline(tmp_path: Path) -> None:
     recorder.record("turn_end", session_id="s1", stop_reason="final_answer", final_text="done")
 
     result = subprocess.run(
-        [sys.executable, "-m", "harness.cli", "replay", "--trace", str(trace)],
+        [sys.executable, "-m", "harness.cli", "replay", "--trace", str(trace), "--session", "s1"],
         check=True,
         text=True,
         capture_output=True,

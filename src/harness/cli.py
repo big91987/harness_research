@@ -76,6 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
     sessions.add_argument("--show", help="Show one session summary.")
     sessions.add_argument("--export", dest="export_session", help="Export one session to a JSON bundle.")
     sessions.add_argument("--import", dest="import_session", help="Import a session JSON bundle.")
+    sessions.add_argument("--compact", help="Compact and persist one session.")
+    sessions.add_argument("--dry-run", action="store_true")
+    sessions.add_argument("--max-messages", type=int)
+    sessions.add_argument("--keep-head", type=int)
+    sessions.add_argument("--keep-tail", type=int)
     sessions.add_argument("--output")
 
     memory = subparsers.add_parser("memory", help="Add or search local markdown memory.")
@@ -437,6 +442,29 @@ def main(argv: list[str] | None = None) -> int:
         elif args.import_session:
             session = SessionBundle.import_into(args.import_session, store)
             print(f"imported: {session.id}")
+        elif args.compact:
+            session = store.load(args.compact)
+            if session is None:
+                raise SystemExit(f"session not found: {args.compact}")
+            manager = ContextManager(
+                max_messages=args.max_messages or 40,
+                keep_head=args.keep_head if args.keep_head is not None else 2,
+                keep_tail=args.keep_tail if args.keep_tail is not None else 20,
+            )
+            try:
+                result = manager.compact(session.messages)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
+            if not args.dry_run:
+                session.messages = result.messages
+                session.metadata["compacted"] = "true"
+                session.metadata["last_compaction_dropped_messages"] = str(result.dropped_count)
+                store.save(session)
+            print(f"session: {session.id}")
+            print(f"original_messages: {result.original_count}")
+            print(f"messages: {len(result.messages)}")
+            print(f"dropped_messages: {result.dropped_count}")
+            print(f"dry_run: {args.dry_run}")
         elif args.show:
             session = store.load(args.show)
             if session is None:

@@ -130,6 +130,17 @@ PYTHONPATH=src python3 -m harness.cli sessions \
   --import /tmp/session-bundle.json
 ```
 
+Compact a long session into a persistent summary plus recent messages:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli sessions \
+  --session-dir /tmp/harness-sessions \
+  --compact <session-id> \
+  --max-messages 40 \
+  --keep-head 2 \
+  --keep-tail 20
+```
+
 Config-driven run:
 
 ```json

@@ -44,3 +44,19 @@ def test_context_manager_compacts_middle_messages() -> None:
     assert compacted[0].content == "msg 0"
     assert "Compacted conversation summary" in compacted[1].content
     assert [m.content for m in compacted[-3:]] == ["msg 9", "msg 10", "msg 11"]
+
+
+def test_context_manager_compact_returns_stats_and_metadata() -> None:
+    messages = [Message.user(f"msg {i}") for i in range(10)]
+    manager = ContextManager(max_messages=5, keep_head=1, keep_tail=2)
+
+    result = manager.compact(messages)
+
+    assert result.original_count == 10
+    assert result.dropped_count == 7
+    assert len(result.messages) == 4
+    summary = result.messages[1]
+    assert summary.role == "system"
+    assert summary.metadata["kind"] == "compaction_summary"
+    assert summary.metadata["dropped_messages"] == 7
+    assert "user: msg 1" in summary.content

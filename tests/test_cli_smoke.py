@@ -348,6 +348,99 @@ def test_cli_sessions_export_and_import(tmp_path: Path) -> None:
     assert "last_assistant: portable" in show.stdout
 
 
+def test_cli_sessions_compact_persists_summary(tmp_path: Path) -> None:
+    session_dir = tmp_path / "sessions"
+    workspace = tmp_path / "ws"
+    env = {**os.environ, "PYTHONPATH": "src"}
+
+    first = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "seed",
+            "--workspace",
+            str(workspace),
+            "--session-dir",
+            str(session_dir),
+            "--mock-final",
+            "first",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    session_id = [line for line in first.stdout.splitlines() if line.startswith("session:")][0].split(":", 1)[1].strip()
+    for index in range(6):
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "harness.cli",
+                "run",
+                f"turn {index}",
+                "--workspace",
+                str(workspace),
+                "--session-dir",
+                str(session_dir),
+                "--session",
+                session_id,
+                "--mock-final",
+                f"answer {index}",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+            env=env,
+        )
+
+    compacted = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(session_dir),
+            "--compact",
+            session_id,
+            "--max-messages",
+            "6",
+            "--keep-head",
+            "1",
+            "--keep-tail",
+            "3",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    assert "dropped_messages:" in compacted.stdout
+    shown = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(session_dir),
+            "--show",
+            session_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+
+    assert "messages: 5" in shown.stdout
+    assert "last_assistant: answer 5" in shown.stdout
+
+
 def test_cli_skills_add_search_and_render(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}
     skill_dir = tmp_path / "skills"

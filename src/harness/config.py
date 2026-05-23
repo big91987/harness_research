@@ -29,6 +29,7 @@ class HarnessConfig:
     default_bash_timeout_seconds: int = 30
     max_bash_timeout_seconds: int = 120
     max_iterations: int = 20
+    max_model_retries: int = 0
     input_cost_per_million_tokens: float = 0.0
     output_cost_per_million_tokens: float = 0.0
     max_total_tokens: int | None = None
@@ -69,6 +70,7 @@ class HarnessConfig:
             "HARNESS_DEFAULT_BASH_TIMEOUT_SECONDS": "default_bash_timeout_seconds",
             "HARNESS_MAX_BASH_TIMEOUT_SECONDS": "max_bash_timeout_seconds",
             "HARNESS_MAX_ITERATIONS": "max_iterations",
+            "HARNESS_MAX_MODEL_RETRIES": "max_model_retries",
             "HARNESS_INPUT_COST_PER_MILLION_TOKENS": "input_cost_per_million_tokens",
             "HARNESS_OUTPUT_COST_PER_MILLION_TOKENS": "output_cost_per_million_tokens",
             "HARNESS_MAX_TOTAL_TOKENS": "max_total_tokens",
@@ -85,6 +87,7 @@ class HarnessConfig:
                 "default_bash_timeout_seconds",
                 "max_bash_timeout_seconds",
                 "max_total_tokens",
+                "max_model_retries",
             }:
                 setattr(self, attr, int(value))
             elif attr in {

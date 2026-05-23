@@ -56,6 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
     run.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
     run.add_argument("--max-iterations", type=int)
+    run.add_argument("--max-model-retries", type=int)
     run.add_argument("--max-total-tokens", type=int)
     run.add_argument("--max-cost-usd", type=float)
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
@@ -235,6 +236,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
             max_cost_usd=config.max_cost_usd,
         ),
         max_iterations=config.max_iterations,
+        max_model_retries=config.max_model_retries,
     )
     return kernel, session
 
@@ -262,6 +264,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "default_bash_timeout_seconds",
         "max_bash_timeout_seconds",
         "max_iterations",
+        "max_model_retries",
         "input_cost_per_million_tokens",
         "output_cost_per_million_tokens",
         "max_total_tokens",

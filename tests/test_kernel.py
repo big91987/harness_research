@@ -156,6 +156,40 @@ def test_kernel_records_model_error_and_returns_failure(tmp_path: Path) -> None:
     assert '"model_error"' in (tmp_path / "trace.jsonl").read_text()
 
 
+def test_kernel_retries_transient_model_error(tmp_path: Path) -> None:
+    class FlakyModel(FakeModelClient):
+        def __init__(self) -> None:
+            super().__init__([ModelResponse(content="recovered")])
+            self.attempts = 0
+
+        def generate(self, messages, tools):  # noqa: ANN001
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("temporary outage")
+            return super().generate(messages, tools)
+
+    workspace = Workspace(tmp_path / "ws")
+    model = FlakyModel()
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        trace=TraceRecorder(tmp_path / "trace.jsonl"),
+        max_model_retries=1,
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "hi")
+
+    assert result.stop_reason == "final_answer"
+    assert result.final_text == "recovered"
+    assert model.attempts == 2
+    trace_text = (tmp_path / "trace.jsonl").read_text()
+    assert '"model_retry"' in trace_text
+    assert '"temporary outage"' in trace_text
+
+
 def test_kernel_aggregates_usage(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path / "ws")
     model = FakeModelClient(

@@ -382,11 +382,14 @@ Configure resource limits in `harness.json`:
   "max_output_chars": 20000,
   "max_file_read_bytes": 1000000,
   "default_bash_timeout_seconds": 30,
-  "max_bash_timeout_seconds": 120
+  "max_bash_timeout_seconds": 120,
+  "max_model_retries": 1
 }
 ```
 
-These limits protect the active context from large files, binary files, and long-running commands.
+These limits protect the active context from large files, binary files, long-running
+commands, and transient model failures. `HARNESS_MAX_MODEL_RETRIES` overrides the
+JSON value.
 
 Configure cost tracking in `harness.json` or environment variables:
 
@@ -411,6 +414,7 @@ Kernel failure behavior:
 
 - Unknown tools are converted into tool-result errors and returned to the model.
 - Model failures are recorded in trace and end the turn with `model_error`.
+- Transient model failures can be retried; each retry is recorded as `model_retry`.
 - Invalid model tool-call arguments produce explicit protocol errors instead of obscure JSON failures.
 - Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
 - Session state also aggregates estimated cost when model pricing is configured.

@@ -9,7 +9,7 @@ from harness.hooks import HookRunnerProtocol
 from harness.memory import MarkdownMemoryStore
 from harness.model import ModelClient
 from harness.permissions import Policy
-from harness.schema import Message, TurnResult
+from harness.schema import Message, ModelResponse, TurnResult
 from harness.session import JsonlSessionStore, Session
 from harness.skills import SkillStore
 from harness.tools import ToolRegistry, ToolResult
@@ -40,6 +40,7 @@ class AgentKernel:
     budget: RuntimeBudget = RuntimeBudget()
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
     max_iterations: int = 20
+    max_model_retries: int = 0
 
     def run_turn(self, session: Session, user_input: str) -> TurnResult:
         trace = self.trace or TraceRecorder()
@@ -68,7 +69,7 @@ class AgentKernel:
 
             trace.record("model_call", session_id=session.id, iteration=iterations)
             try:
-                response = self.model.generate(prompt_messages, self.tools.definitions())
+                response = self._generate_with_retries(trace, session.id, iterations, prompt_messages)
             except Exception as exc:  # noqa: BLE001 - model failures should become turn state.
                 final_text = f"Model error: {exc}"
                 stop_reason = "model_error"
@@ -171,6 +172,33 @@ class AgentKernel:
         cost_usd = self.pricing.estimate(usage)
         session.cost_usd += cost_usd
         return cost_usd
+
+    def _generate_with_retries(
+        self,
+        trace: TraceRecorder,
+        session_id: str,
+        iteration: int,
+        prompt_messages: list[Message],
+    ) -> ModelResponse:
+        attempts = self.max_model_retries + 1
+        last_error: Exception | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return self.model.generate(prompt_messages, self.tools.definitions())
+            except Exception as exc:  # noqa: BLE001 - retry policy wraps provider/client failures.
+                last_error = exc
+                if attempt >= attempts:
+                    break
+                trace.record(
+                    "model_retry",
+                    session_id=session_id,
+                    iteration=iteration,
+                    attempt=attempt,
+                    max_attempts=attempts,
+                    error=str(exc),
+                )
+        assert last_error is not None
+        raise last_error
 
     def _run_hooks(self, trace: TraceRecorder, event_type: str, payload: dict) -> None:
         if not self.hooks:

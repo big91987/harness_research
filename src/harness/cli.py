@@ -21,7 +21,7 @@ from harness.permissions import PermissionMode, Policy
 from harness.scaffold import scaffold_project
 from harness.schema import ModelResponse
 from harness.schema import ToolCall
-from harness.session import JsonlSessionStore, Session
+from harness.session import JsonlSessionStore, Session, SessionBundle
 from harness.skills import SkillStore
 from harness.tasks import TaskStatus, TaskStore
 from harness.tools import default_tool_registry
@@ -65,6 +65,9 @@ def build_parser() -> argparse.ArgumentParser:
     sessions = subparsers.add_parser("sessions", help="List local sessions.")
     sessions.add_argument("--session-dir")
     sessions.add_argument("--show", help="Show one session summary.")
+    sessions.add_argument("--export", dest="export_session", help="Export one session to a JSON bundle.")
+    sessions.add_argument("--import", dest="import_session", help="Import a session JSON bundle.")
+    sessions.add_argument("--output")
 
     memory = subparsers.add_parser("memory", help="Add or search local markdown memory.")
     memory.add_argument("--memory-dir")
@@ -371,7 +374,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "sessions":
         config = _merged_config(args)
         store = JsonlSessionStore(config.session_dir)
-        if args.show:
+        if args.export_session:
+            if not args.output:
+                raise SystemExit("--output is required with --export")
+            session = store.load(args.export_session)
+            if session is None:
+                raise SystemExit(f"session not found: {args.export_session}")
+            path = SessionBundle.export(session, args.output)
+            print(f"exported: {path}")
+        elif args.import_session:
+            session = SessionBundle.import_into(args.import_session, store)
+            print(f"imported: {session.id}")
+        elif args.show:
             session = store.load(args.show)
             if session is None:
                 raise SystemExit(f"session not found: {args.show}")

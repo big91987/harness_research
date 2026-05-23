@@ -117,6 +117,19 @@ PYTHONPATH=src python3 -m harness.cli run "create file" \
   --mock-responses /path/to/responses.json
 ```
 
+Export or import a session bundle:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli sessions \
+  --session-dir /tmp/harness-sessions \
+  --export <session-id> \
+  --output /tmp/session-bundle.json
+
+PYTHONPATH=src python3 -m harness.cli sessions \
+  --session-dir /tmp/other-harness-sessions \
+  --import /tmp/session-bundle.json
+```
+
 Config-driven run:
 
 ```json

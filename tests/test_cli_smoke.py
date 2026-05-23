@@ -204,6 +204,89 @@ def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     assert "last_assistant: two" in show.stdout
 
 
+def test_cli_sessions_export_and_import(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    source_dir = tmp_path / "source"
+    target_dir = tmp_path / "target"
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "export me",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(source_dir),
+            "--mock-final",
+            "portable",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    session_id = [line for line in run.stdout.splitlines() if line.startswith("session:")][0].split(":", 1)[1].strip()
+    bundle = tmp_path / "session.json"
+
+    export = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(source_dir),
+            "--export",
+            session_id,
+            "--output",
+            str(bundle),
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "exported:" in export.stdout
+
+    imported = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(target_dir),
+            "--import",
+            str(bundle),
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert f"imported: {session_id}" in imported.stdout
+
+    show = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(target_dir),
+            "--show",
+            session_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "last_assistant: portable" in show.stdout
+
+
 def test_cli_skills_add_search_and_render(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}
     skill_dir = tmp_path / "skills"

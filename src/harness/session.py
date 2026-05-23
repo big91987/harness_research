@@ -80,3 +80,38 @@ class JsonlSessionStore:
 
     def list(self) -> list[str]:
         return sorted(path.stem for path in self.root.glob("*.jsonl"))
+
+
+class SessionBundle:
+    version = 1
+
+    @classmethod
+    def export(cls, session: Session | None, path: str | Path) -> Path:
+        if session is None:
+            raise ValueError("session is required")
+        target = Path(path).expanduser().resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(
+            json.dumps(
+                {
+                    "version": cls.version,
+                    "session": session.to_dict(),
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return target
+
+    @classmethod
+    def import_into(cls, path: str | Path, store: JsonlSessionStore) -> Session:
+        bundle_path = Path(path).expanduser().resolve()
+        data = json.loads(bundle_path.read_text(encoding="utf-8"))
+        if int(data.get("version") or 0) != cls.version:
+            raise ValueError(f"unsupported session bundle version: {data.get('version')}")
+        session = Session.from_dict(data["session"])
+        store.save(session)
+        return session

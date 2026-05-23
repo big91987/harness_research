@@ -15,6 +15,8 @@ __all__ = [
     "schema",
     "scaffold",
     "session",
+    "skills",
+    "tasks",
     "tools",
     "trace",
     "verify",

@@ -16,6 +16,7 @@ def test_scaffold_project_writes_config_and_samples(tmp_path: Path) -> None:
     config = json.loads(result.config_path.read_text(encoding="utf-8"))
     assert config["workspace"].endswith("workspace")
     assert config["skill_dir"].endswith("skills")
+    assert config["task_dir"].endswith("tasks")
     assert config["hook_config"].endswith("hooks.json")
     assert (tmp_path / "hooks.json").exists()
     responses = json.loads(result.mock_responses_path.read_text(encoding="utf-8"))

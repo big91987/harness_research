@@ -259,3 +259,92 @@ def test_cli_skills_add_search_and_render(tmp_path: Path) -> None:
         env=env,
     )
     assert "Available skills:" in render.stdout
+
+
+def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    task_dir = tmp_path / "tasks"
+
+    created = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--add",
+            "ship harness",
+            "--description",
+            "local harness task",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    task_id = [line for line in created.stdout.splitlines() if line.startswith("task:")][0].split(":", 1)[1].strip()
+
+    updated = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--update",
+            task_id,
+            "--status",
+            "in_progress",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "status: in_progress" in updated.stdout
+
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "work task",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--task-dir",
+            str(task_dir),
+            "--task-id",
+            task_id,
+            "--mock-final",
+            "done-ish",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    session_id = [line for line in run.stdout.splitlines() if line.startswith("session:")][0].split(":", 1)[1].strip()
+
+    show = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--show",
+            task_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "ship harness" in show.stdout
+    assert f"session: {session_id}" in show.stdout

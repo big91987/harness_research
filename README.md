@@ -17,6 +17,7 @@ CLI
   -> TraceRecorder
   -> MarkdownMemoryStore
   -> SkillStore
+  -> TaskStore
 ```
 
 Implemented modules:
@@ -31,6 +32,7 @@ Implemented modules:
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
 - `harness.skills`: Markdown-backed skill registry, search, and prompt injection.
+- `harness.tasks`: local task ledger for long-running work and session association.
 - `harness.hooks`: local lifecycle command hooks for harness events.
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
@@ -123,6 +125,7 @@ Config-driven run:
   "trace": "/tmp/harness-trace.jsonl",
   "memory_dir": "/tmp/harness-memory",
   "skill_dir": "/tmp/harness-skills",
+  "task_dir": "/tmp/harness-tasks",
   "hook_config": "/tmp/harness-hooks.json",
   "permission": "workspace-write",
   "input_cost_per_million_tokens": 0.0,
@@ -231,6 +234,23 @@ PYTHONPATH=src python3 -m harness.cli skills \
 Skills are stored as Markdown files and injected into the model context when they
 match the current user request.
 
+Manage long-running tasks:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli tasks \
+  --task-dir /tmp/harness-tasks \
+  --add "ship local harness" \
+  --description "track the implementation until verified"
+
+PYTHONPATH=src python3 -m harness.cli run "continue work" \
+  --task-dir /tmp/harness-tasks \
+  --task-id <task-id> \
+  --mock-final "checkpoint complete"
+```
+
+`run --task-id` marks the task `in_progress` and records the session id on the task,
+so follow-up turns and future server APIs have a stable state anchor.
+
 Configure lifecycle hooks:
 
 ```json
@@ -319,6 +339,7 @@ Kernel failure behavior:
 - Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
 - Session state also aggregates estimated cost when model pricing is configured.
 - Relevant Markdown skills are injected into the system context for each turn.
+- Local tasks track long-running work and can be associated with agent sessions.
 - Runtime budget overruns stop the turn before additional tool calls execute.
 - Lifecycle hooks can observe `turn_start`, `tool_call`, and `turn_end` events.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
@@ -368,4 +389,4 @@ The server should wrap the same local modules instead of creating a second runti
 - Session routing and agent registry on top of `JsonlSessionStore`.
 - Approval broker for `prompt` mode.
 - Trace/replay endpoints for `TraceRecorder`.
-- Tool, skill, and memory management APIs.
+- Tool, task, skill, and memory management APIs.

@@ -22,6 +22,7 @@ from harness.schema import ModelResponse
 from harness.schema import ToolCall
 from harness.session import JsonlSessionStore, Session
 from harness.skills import SkillStore
+from harness.tasks import TaskStatus, TaskStore
 from harness.tools import default_tool_registry
 from harness.trace import TraceRecorder
 from harness.verify import VerifyOptions, run_verify
@@ -43,6 +44,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--artifact-dir")
     run.add_argument("--memory-dir")
     run.add_argument("--skill-dir")
+    run.add_argument("--task-dir")
+    run.add_argument("--task-id")
     run.add_argument("--hook-config")
     run.add_argument("--base-url")
     run.add_argument("--api-key")
@@ -73,6 +76,15 @@ def build_parser() -> argparse.ArgumentParser:
     skills.add_argument("--body-file")
     skills.add_argument("--search")
     skills.add_argument("--query")
+
+    tasks = subparsers.add_parser("tasks", help="Create, update, list, and show local harness tasks.")
+    tasks.add_argument("--task-dir")
+    tasks.add_argument("--add")
+    tasks.add_argument("--description", default="")
+    tasks.add_argument("--update")
+    tasks.add_argument("--show")
+    tasks.add_argument("--status", choices=[status.value for status in TaskStatus])
+    tasks.add_argument("--session")
 
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
     trace.add_argument("--trace")
@@ -113,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--session-dir")
     doctor.add_argument("--memory-dir")
     doctor.add_argument("--skill-dir")
+    doctor.add_argument("--task-dir")
 
     verify = subparsers.add_parser("verify", help="Run local verification gates.")
     verify.add_argument("--work-dir", default=".harness/verify")
@@ -191,6 +204,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "artifact_dir",
         "memory_dir",
         "skill_dir",
+        "task_dir",
         "hook_config",
         "base_url",
         "api_key",
@@ -246,11 +260,29 @@ def _load_mock_responses(path: str | Path) -> list[ModelResponse]:
     return responses
 
 
+def _print_task(task) -> None:  # noqa: ANN001 - keep CLI formatting decoupled from task dataclass.
+    print(f"task: {task.id}")
+    print(f"title: {task.title}")
+    print(f"status: {task.status}")
+    if task.description:
+        print(f"description: {task.description}")
+    if task.session_id:
+        print(f"session: {task.session_id}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "run":
+        config = _merged_config(args)
         kernel, session = build_kernel(args)
+        if args.task_id:
+            session.metadata["task_id"] = args.task_id
+            TaskStore(config.task_dir).update(
+                args.task_id,
+                status=TaskStatus.IN_PROGRESS,
+                session_id=session.id,
+            )
         result = kernel.run_turn(session, args.prompt)
         print(result.final_text)
         print(f"\nsession: {result.session_id}")
@@ -312,6 +344,32 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"{skill.name}{suffix}")
             return 0
         print(skills.render_context(args.query or ""))
+        return 0
+    if args.command == "tasks":
+        config = _merged_config(args)
+        tasks = TaskStore(config.task_dir)
+        if args.add:
+            task = tasks.create(args.add, description=args.description)
+            _print_task(task)
+            return 0
+        if args.update:
+            task = tasks.update(
+                args.update,
+                status=args.status,
+                session_id=args.session,
+                description=args.description if args.description else None,
+            )
+            _print_task(task)
+            return 0
+        if args.show:
+            try:
+                task = tasks.load(args.show)
+            except KeyError as exc:
+                raise SystemExit(str(exc)) from exc
+            _print_task(task)
+            return 0
+        for task in tasks.list(status=args.status):
+            print(f"{task.id} {task.status} {task.title}")
         return 0
     if args.command == "trace":
         config = _merged_config(args)
@@ -408,6 +466,7 @@ def main(argv: list[str] | None = None) -> int:
             session_dir=config.session_dir,
             memory_dir=config.memory_dir,
             skill_dir=config.skill_dir,
+            task_dir=config.task_dir,
             trace=config.trace,
             audit=config.audit,
             artifact_dir=config.artifact_dir,

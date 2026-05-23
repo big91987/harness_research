@@ -13,6 +13,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "trace": "trace.jsonl",
           "memory_dir": "memory",
           "skill_dir": "skills",
+          "task_dir": "tasks",
           "hook_config": "hooks.json",
           "base_url": "https://config.example.com",
           "api_key": "from-config",
@@ -39,6 +40,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
 
     assert config.workspace == "ws"
     assert config.skill_dir == "skills"
+    assert config.task_dir == "tasks"
     assert config.hook_config == "hooks.json"
     assert config.model == "env-model"
     assert config.permission == "workspace-write"
@@ -62,6 +64,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_MAX_TOTAL_TOKENS", "42")
     monkeypatch.setenv("HARNESS_MAX_COST_USD", "0.25")
     monkeypatch.setenv("HARNESS_SKILL_DIR", "env-skills")
+    monkeypatch.setenv("HARNESS_TASK_DIR", "env-tasks")
     monkeypatch.setenv("HARNESS_HOOK_CONFIG", "env-hooks.json")
 
     config = HarnessConfig.load()
@@ -71,4 +74,5 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.max_total_tokens == 42
     assert config.max_cost_usd == 0.25
     assert config.skill_dir == "env-skills"
+    assert config.task_dir == "env-tasks"
     assert config.hook_config == "env-hooks.json"

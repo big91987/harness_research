@@ -67,6 +67,7 @@ class AgentKernel:
                 tool_calls=len(response.tool_calls),
                 usage=response.usage,
             )
+            self._record_usage(session, response.usage)
 
             session.messages.append(Message.assistant(response.content, response.tool_calls))
             if not response.tool_calls:
@@ -110,3 +111,7 @@ class AgentKernel:
             final_text=final_text,
         )
         return TurnResult(session.id, final_text, iterations, stop_reason)
+
+    def _record_usage(self, session: Session, usage: dict) -> None:
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            session.usage[key] = int(session.usage.get(key, 0)) + int(usage.get(key, 0) or 0)

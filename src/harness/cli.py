@@ -237,6 +237,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"session: {session.id}")
             print(f"workspace: {session.workspace}")
             print(f"messages: {len(session.messages)}")
+            print(f"usage_prompt_tokens: {session.usage.get('prompt_tokens', 0)}")
+            print(f"usage_completion_tokens: {session.usage.get('completion_tokens', 0)}")
+            print(f"usage_total_tokens: {session.usage.get('total_tokens', 0)}")
             last = session.messages[-1] if session.messages else None
             if last:
                 print(f"last_{last.role}: {last.content}")

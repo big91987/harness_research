@@ -15,6 +15,10 @@ class ModelClient:
         raise NotImplementedError
 
 
+class ModelProtocolError(RuntimeError):
+    pass
+
+
 class FakeModelClient(ModelClient):
     def __init__(self, responses: Sequence[ModelResponse]) -> None:
         self.responses = list(responses)
@@ -114,9 +118,19 @@ class OpenAICompatibleModelClient(ModelClient):
             function = item.get("function") or {}
             arguments = function.get("arguments") or "{}"
             if isinstance(arguments, str):
-                parsed_args = json.loads(arguments or "{}")
+                try:
+                    parsed_args = json.loads(arguments or "{}")
+                except json.JSONDecodeError as exc:
+                    name = function.get("name") or "<unknown>"
+                    raise ModelProtocolError(f"invalid JSON arguments for tool {name}: {exc.msg}") from exc
             else:
                 parsed_args = arguments
-            calls.append(ToolCall(id=item["id"], name=function["name"], arguments=parsed_args))
+            if not isinstance(parsed_args, dict):
+                name = function.get("name") or "<unknown>"
+                raise ModelProtocolError(f"tool {name} arguments must be a JSON object")
+            name = function.get("name")
+            if not name:
+                raise ModelProtocolError("tool call is missing function.name")
+            call_id = item.get("id") or ToolCall.new(name, parsed_args).id
+            calls.append(ToolCall(id=call_id, name=name, arguments=parsed_args))
         return calls
-

@@ -45,6 +45,8 @@ def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
     result = kernel.run_turn(session, "create answer")
 
     assert result.final_text == "done"
+    assert session.usage["prompt_tokens"] == 0
+    assert session.usage["total_tokens"] == 0
     assert (workspace.root / "answer.txt").read_text() == "42"
     assert store.load(session.id) is not None
     trace_text = (tmp_path / "trace.jsonl").read_text()
@@ -118,6 +120,31 @@ def test_kernel_records_model_error_and_returns_failure(tmp_path: Path) -> None:
     assert result.stop_reason == "model_error"
     assert "model down" in result.final_text
     assert '"model_error"' in (tmp_path / "trace.jsonl").read_text()
+
+
+def test_kernel_aggregates_usage(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="tracked",
+                usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+            )
+        ]
+    )
+    session = Session.new(workspace=str(workspace.root))
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+    )
+
+    result = kernel.run_turn(session, "usage")
+
+    assert result.stop_reason == "final_answer"
+    assert session.usage == {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
 
 
 def test_kernel_policy_denies_disallowed_tool_and_audits(tmp_path: Path) -> None:

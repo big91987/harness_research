@@ -242,6 +242,8 @@ Kernel failure behavior:
 
 - Unknown tools are converted into tool-result errors and returned to the model.
 - Model failures are recorded in trace and end the turn with `model_error`.
+- Invalid model tool-call arguments produce explicit protocol errors instead of obscure JSON failures.
+- Session state aggregates provider usage fields: `prompt_tokens`, `completion_tokens`, and `total_tokens`.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
 - Tool calls are also written to an audit log when configured.

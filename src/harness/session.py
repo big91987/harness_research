@@ -17,6 +17,11 @@ class Session:
     created_at: float = field(default_factory=time)
     updated_at: float = field(default_factory=time)
     metadata: dict[str, str] = field(default_factory=dict)
+    usage: dict[str, int] = field(default_factory=lambda: {
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+    })
 
     @classmethod
     def new(cls, workspace: str) -> "Session":
@@ -36,6 +41,11 @@ class Session:
             created_at=float(data.get("created_at") or time()),
             updated_at=float(data.get("updated_at") or time()),
             metadata=dict(data.get("metadata") or {}),
+            usage={
+                "prompt_tokens": int((data.get("usage") or {}).get("prompt_tokens", 0)),
+                "completion_tokens": int((data.get("usage") or {}).get("completion_tokens", 0)),
+                "total_tokens": int((data.get("usage") or {}).get("total_tokens", 0)),
+            },
         )
 
 
@@ -68,4 +78,3 @@ class JsonlSessionStore:
 
     def list(self) -> list[str]:
         return sorted(path.stem for path in self.root.glob("*.jsonl"))
-

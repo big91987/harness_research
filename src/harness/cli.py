@@ -230,6 +230,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--skip-config-validation", action="store_true")
     verify.add_argument("--skip-mock-smoke", action="store_true")
     verify.add_argument("--live-smoke", action="store_true")
+    verify.add_argument("--live-tool-smoke", action="store_true")
 
     init = subparsers.add_parser("init", help="Create a local harness config and sample fixtures.")
     init.add_argument("--root", default=".harness-local")
@@ -950,6 +951,7 @@ def main(argv: list[str] | None = None) -> int:
                 run_compile=not args.skip_compile,
                 run_mock_smoke=not args.skip_mock_smoke,
                 run_live_smoke=args.live_smoke,
+                run_live_tool_smoke=args.live_tool_smoke,
                 config=config,
             )
         )

@@ -19,6 +19,7 @@ class VerifyOptions:
     run_compile: bool = True
     run_mock_smoke: bool = True
     run_live_smoke: bool = False
+    run_live_tool_smoke: bool = False
     config: HarnessConfig = field(default_factory=HarnessConfig)
 
 
@@ -65,6 +66,8 @@ def run_verify(options: VerifyOptions) -> VerifyReport:
 
     if options.run_live_smoke:
         results["live_smoke"] = _run_live_smoke(root, work_dir, env, options.config)
+    if options.run_live_tool_smoke:
+        results["live_tool_smoke"] = _run_live_tool_smoke(root, work_dir, env, options.config)
 
     return VerifyReport(results)
 
@@ -162,4 +165,47 @@ def _run_live_smoke(root: Path, work_dir: Path, env: dict[str, str], config: Har
     result = _run("live_smoke", command, root, live_env)
     if result.passed and "live-smoke-ok" not in result.output:
         return VerifyResult("live_smoke", False, result.output + "\nexpected live-smoke-ok in output")
+    return result
+
+
+def _run_live_tool_smoke(root: Path, work_dir: Path, env: dict[str, str], config: HarnessConfig) -> VerifyResult:
+    if not config.base_url or not config.api_key:
+        return VerifyResult("live_tool_smoke", False, "missing base_url or api_key")
+    live_env = {
+        **env,
+        "HARNESS_BASE_URL": config.base_url,
+        "HARNESS_API_KEY": config.api_key,
+        "HARNESS_MODEL": config.model,
+        "HARNESS_MODEL_TIMEOUT_SECONDS": str(config.model_timeout_seconds),
+    }
+    workspace = work_dir / "live_tool_workspace"
+    target = workspace / "live-tool-smoke.txt"
+    command = [
+        sys.executable,
+        "-m",
+        "harness.cli",
+        "run",
+        "Use the available tool to create a file named live-tool-smoke.txt containing exactly live-tool-smoke-ok, then answer done.",
+        "--workspace",
+        str(workspace),
+        "--session-dir",
+        str(work_dir / "live_tool_sessions"),
+        "--trace",
+        str(work_dir / "live_tool_trace.jsonl"),
+        "--audit",
+        str(work_dir / "live_tool_audit.jsonl"),
+        "--permission",
+        "workspace-write",
+        "--tool-profile",
+        "coding",
+        "--max-iterations",
+        "4",
+    ]
+    result = _run("live_tool_smoke", command, root, live_env)
+    if not result.passed:
+        return result
+    if not target.exists():
+        return VerifyResult("live_tool_smoke", False, result.output + "\nlive-tool-smoke.txt missing")
+    if target.read_text(encoding="utf-8") != "live-tool-smoke-ok":
+        return VerifyResult("live_tool_smoke", False, result.output + "\nlive-tool-smoke.txt content mismatch")
     return result

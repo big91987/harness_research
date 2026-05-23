@@ -73,6 +73,16 @@ HARNESS_MODEL="model-name" \
 PYTHONPATH=src python3 -m harness.cli verify --live-smoke
 ```
 
+Use a real model tool loop when you need to prove the model can actually call
+the local coding tools:
+
+```bash
+HARNESS_BASE_URL="https://api.example.com" \
+HARNESS_API_KEY="..." \
+HARNESS_MODEL="model-name" \
+PYTHONPATH=src python3 -m harness.cli verify --live-tool-smoke
+```
+
 ## Bootstrap A Local Harness
 
 Create a runnable local harness directory with config, sample model responses,

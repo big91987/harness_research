@@ -37,6 +37,44 @@ def test_read_only_policy_denies_writes_but_allows_reads(tmp_path: Path) -> None
     assert "requires" in denied.output
 
 
+def test_append_file_appends_to_existing_and_new_files(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+    (tmp_path / "notes.txt").write_text("one\n", encoding="utf-8")
+
+    existing = tools.get("append_file").run(
+        {"path": "notes.txt", "content": "two\n"},
+        workspace,
+        policy,
+    )
+    new_file = tools.get("append_file").run(
+        {"path": "nested/log.txt", "content": "created\n"},
+        workspace,
+        policy,
+    )
+
+    assert not existing.is_error
+    assert not new_file.is_error
+    assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "one\ntwo\n"
+    assert (tmp_path / "nested" / "log.txt").read_text(encoding="utf-8") == "created\n"
+
+
+def test_append_file_requires_workspace_write_permission(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("append_file").run(
+        {"path": "notes.txt", "content": "no\n"},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert result.is_error
+    assert "requires workspace-write permission" in result.output
+    assert not (tmp_path / "notes.txt").exists()
+
+
 def test_bash_requires_danger_permission(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -237,11 +275,15 @@ def test_tool_registry_describes_tools() -> None:
     registry = default_tool_registry()
 
     read_description = registry.describe("read_file")
+    append_description = registry.describe("append_file")
     delete_description = registry.describe("delete_path")
 
     assert read_description["name"] == "read_file"
     assert read_description["required_permission"] == "read-only"
     assert read_description["parameters"]["required"] == ["path"]
+    assert append_description["name"] == "append_file"
+    assert append_description["required_permission"] == "workspace-write"
+    assert append_description["parameters"]["required"] == ["path", "content"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]

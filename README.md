@@ -25,7 +25,7 @@ Implemented modules:
 - `harness.cli`: local command line entry point.
 - `harness.kernel`: turn loop, model call, tool dispatch, session persistence, trace events.
 - `harness.model`: fake model for tests and OpenAI-compatible chat completions client.
-- `harness.tools`: built-in `list_files`, `read_file`, `write_file`, `edit_file`, `move_path`, `delete_path`, `grep`, `bash`.
+- `harness.tools`: built-in `list_files`, `read_file`, `write_file`, `append_file`, `edit_file`, `move_path`, `delete_path`, `grep`, `bash`.
 - `harness.permissions`: read-only, workspace-write, danger, and prompt policy modes.
 - `harness.workspace`: workspace path containment.
 - `harness.session`: JSONL session persistence.
@@ -459,6 +459,12 @@ PYTHONPATH=src python3 -m harness.cli tools \
   --call write_file \
   --args-json '{"path":"out.txt","content":"ok"}' \
   --json
+
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
+  --permission workspace-write \
+  --call append_file \
+  --args-json '{"path":"out.txt","content":"\nmore"}'
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \

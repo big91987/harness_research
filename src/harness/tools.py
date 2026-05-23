@@ -192,6 +192,14 @@ def _write_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     return ToolResult(f"wrote {path.relative_to(workspace.root)}")
 
 
+def _append_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    path = workspace.resolve(args["path"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(str(args.get("content", "")))
+    return ToolResult(f"appended {path.relative_to(workspace.root)}")
+
+
 def _edit_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     old = str(args["old"])
@@ -345,6 +353,19 @@ def default_tool_registry(
             "Write a UTF-8 file inside the workspace.",
             _schema({"path": {"type": "string"}, "content": {"type": "string"}}, ["path", "content"]),
             _write_file,
+            PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=limits.max_output_chars,
+        )
+    )
+    registry.register(
+        Tool(
+            "append_file",
+            "Append UTF-8 content to a file inside the workspace.",
+            _schema(
+                {"path": {"type": "string"}, "content": {"type": "string"}},
+                ["path", "content"],
+            ),
+            _append_file,
             PermissionMode.WORKSPACE_WRITE,
             max_output_chars=limits.max_output_chars,
         )

@@ -245,6 +245,13 @@ Inspect audit events:
 
 ```bash
 PYTHONPATH=src python3 -m harness.cli audit --audit /tmp/harness-audit.jsonl
+
+PYTHONPATH=src python3 -m harness.cli audit \
+  --audit /tmp/harness-audit.jsonl \
+  --session <session-id> \
+  --type tool_call \
+  --allowed false \
+  --json
 ```
 
 Add and inspect local skills:

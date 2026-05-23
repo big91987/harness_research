@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from harness.artifacts import ArtifactStore
-from harness.audit import AuditLog
+from harness.audit import AuditLog, AuditQuery
 
 
 def test_artifact_store_registers_and_verifies_workspace_file(tmp_path: Path) -> None:
@@ -33,6 +33,19 @@ def test_audit_log_records_jsonl_events(tmp_path: Path) -> None:
     events = audit.read_events()
     assert [event["type"] for event in events] == ["tool_call", "approval"]
     assert events[1]["allowed"] is False
+
+
+def test_audit_query_filters_events(tmp_path: Path) -> None:
+    audit = AuditLog(tmp_path / "audit.jsonl")
+    audit.record("tool_call", session_id="s1", actor="agent", action="read_file", allowed=True)
+    audit.record("tool_call", session_id="s2", actor="agent", action="bash", allowed=False)
+    audit.record("approval", session_id="s2", actor="user", action="bash", allowed=False)
+
+    events = AuditQuery(audit).events(session_id="s2", action="bash", allowed=False, limit=1)
+
+    assert len(events) == 1
+    assert events[0]["type"] == "approval"
+    assert events[0]["session_id"] == "s2"
 
 
 def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
@@ -90,3 +103,21 @@ def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
     )
     assert "tool_call read_file" in audit.stdout
 
+    audit_json = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "audit",
+            "--audit",
+            str(audit_path),
+            "--type",
+            "tool_call",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert '"type": "tool_call"' in audit_json.stdout

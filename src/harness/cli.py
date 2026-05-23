@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from harness.artifacts import ArtifactStore
-from harness.audit import AuditLog
+from harness.audit import AuditLog, AuditQuery
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
@@ -115,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     audit = subparsers.add_parser("audit", help="Print audit JSONL events.")
     audit.add_argument("--audit")
+    audit.add_argument("--session")
+    audit.add_argument("--type", dest="event_type")
+    audit.add_argument("--action")
+    audit.add_argument("--allowed", choices=["true", "false"])
+    audit.add_argument("--limit", type=int)
+    audit.add_argument("--json", action="store_true")
 
     replay = subparsers.add_parser("replay", help="Print trace events as a compact timeline.")
     replay.add_argument("--trace")
@@ -459,7 +465,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "audit":
         config = _merged_config(args)
-        for event in AuditLog(config.audit).read_events():
+        query = AuditQuery(AuditLog(config.audit))
+        allowed = None if args.allowed is None else args.allowed == "true"
+        events = query.events(
+            session_id=args.session,
+            event_type=args.event_type,
+            action=args.action,
+            allowed=allowed,
+            limit=args.limit,
+        )
+        if args.json:
+            print(json.dumps(events, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        for event in events:
             event_type = event.get("type")
             action = event.get("action", "")
             allowed = event.get("allowed")

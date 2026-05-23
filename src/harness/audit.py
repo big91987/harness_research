@@ -29,3 +29,29 @@ class AuditLog:
                     events.append(json.loads(line))
         return events
 
+
+class AuditQuery:
+    def __init__(self, audit: AuditLog) -> None:
+        self.audit = audit
+
+    def events(
+        self,
+        *,
+        session_id: str | None = None,
+        event_type: str | None = None,
+        action: str | None = None,
+        allowed: bool | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        events = self.audit.read_events()
+        if session_id is not None:
+            events = [event for event in events if event.get("session_id") == session_id]
+        if event_type is not None:
+            events = [event for event in events if event.get("type") == event_type]
+        if action is not None:
+            events = [event for event in events if event.get("action") == action]
+        if allowed is not None:
+            events = [event for event in events if event.get("allowed") is allowed]
+        if limit is not None:
+            events = events[-limit:]
+        return events

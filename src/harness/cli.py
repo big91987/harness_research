@@ -43,6 +43,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--api-key")
     run.add_argument("--model")
     run.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
+    run.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
+    run.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
     run.add_argument("--max-iterations", type=int)
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
@@ -131,7 +133,13 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         tools=default_tool_registry(),
         store=store,
         workspace=workspace,
-        policy=Policy(PermissionMode(config.permission), approval_callback=_approval_callback),
+        policy=Policy(
+            PermissionMode(config.permission),
+            approval_callback=_approval_callback,
+            allowed_tools=set(config.allowed_tools) if config.allowed_tools is not None else None,
+            denied_tools=set(config.denied_tools) if config.denied_tools is not None else None,
+            audit=AuditLog(config.audit),
+        ),
         context=ContextManager(),
         trace=TraceRecorder(config.trace),
         audit=AuditLog(config.audit),
@@ -154,6 +162,8 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "api_key",
         "model",
         "permission",
+        "allowed_tools",
+        "denied_tools",
         "max_iterations",
     ):
         value = getattr(args, attr, None)

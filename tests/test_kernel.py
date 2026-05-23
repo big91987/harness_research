@@ -118,3 +118,39 @@ def test_kernel_records_model_error_and_returns_failure(tmp_path: Path) -> None:
     assert result.stop_reason == "model_error"
     assert "model down" in result.final_text
     assert '"model_error"' in (tmp_path / "trace.jsonl").read_text()
+
+
+def test_kernel_policy_denies_disallowed_tool_and_audits(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    audit = AuditLog(tmp_path / "audit.jsonl")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="try write",
+                tool_calls=[
+                    ToolCall(
+                        id="call-1",
+                        name="write_file",
+                        arguments={"path": "nope.txt", "content": "bad"},
+                    )
+                ],
+            ),
+            ModelResponse(content="tool was denied"),
+        ]
+    )
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.DANGER, allowed_tools={"read_file"}, audit=audit),
+        audit=audit,
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "write")
+
+    assert result.stop_reason == "final_answer"
+    assert not (workspace.root / "nope.txt").exists()
+    events = audit.read_events()
+    assert any(event["type"] == "policy_denial" for event in events)
+    assert any(event["type"] == "tool_call" and event["allowed"] is False for event in events)

@@ -38,6 +38,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "artifact_dir": str(artifacts),
             "memory_dir": str(memory),
             "permission": "workspace-write",
+            "denied_tools": ["bash"],
             "model": "gpt-4.1-mini",
             "max_iterations": 20,
         },
@@ -88,4 +89,3 @@ def _write_json(path: Path, data: object, *, overwrite: bool) -> None:
     if path.exists() and not overwrite:
         return
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-

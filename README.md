@@ -212,6 +212,19 @@ PYTHONPATH=src python3 -m harness.cli doctor
 PYTHONPATH=src python3 -m harness.cli run "edit file" --permission prompt
 ```
 
+Restrict tools with allow/deny lists:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli run "inspect only" \
+  --permission danger \
+  --allow-tool read_file \
+  --allow-tool grep
+
+PYTHONPATH=src python3 -m harness.cli run "no shell" \
+  --permission danger \
+  --deny-tool bash
+```
+
 Kernel failure behavior:
 
 - Unknown tools are converted into tool-result errors and returned to the model.
@@ -219,6 +232,7 @@ Kernel failure behavior:
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
 - Tool calls are also written to an audit log when configured.
+- Policy denials and approval decisions are written to the audit log when configured.
 
 `responses.json`:
 

@@ -19,6 +19,8 @@ class HarnessConfig:
     api_key: str | None = None
     model: str = "gpt-4.1-mini"
     permission: str = "read-only"
+    allowed_tools: list[str] | None = None
+    denied_tools: list[str] | None = None
     max_iterations: int = 20
 
     @classmethod
@@ -46,6 +48,8 @@ class HarnessConfig:
             "OPENAI_API_KEY": "api_key",
             "HARNESS_MODEL": "model",
             "HARNESS_PERMISSION": "permission",
+            "HARNESS_ALLOWED_TOOLS": "allowed_tools",
+            "HARNESS_DENIED_TOOLS": "denied_tools",
             "HARNESS_MAX_ITERATIONS": "max_iterations",
         }
         for env_name, attr in mapping.items():
@@ -54,6 +58,8 @@ class HarnessConfig:
                 continue
             if attr == "max_iterations":
                 setattr(self, attr, int(value))
+            elif attr in {"allowed_tools", "denied_tools"}:
+                setattr(self, attr, [item.strip() for item in value.split(",") if item.strip()])
             else:
                 setattr(self, attr, value)
 

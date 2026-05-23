@@ -225,6 +225,19 @@ PYTHONPATH=src python3 -m harness.cli run "no shell" \
   --deny-tool bash
 ```
 
+Configure resource limits in `harness.json`:
+
+```json
+{
+  "max_output_chars": 20000,
+  "max_file_read_bytes": 1000000,
+  "default_bash_timeout_seconds": 30,
+  "max_bash_timeout_seconds": 120
+}
+```
+
+These limits protect the active context from large files, binary files, and long-running commands.
+
 Kernel failure behavior:
 
 - Unknown tools are converted into tool-result errors and returned to the model.

@@ -11,6 +11,12 @@ from harness.permissions import PermissionMode, Policy
 from harness.workspace import Workspace
 
 
+DEFAULT_MAX_OUTPUT_CHARS = 20_000
+DEFAULT_MAX_FILE_READ_BYTES = 1_000_000
+DEFAULT_BASH_TIMEOUT_SECONDS = 30
+DEFAULT_MAX_BASH_TIMEOUT_SECONDS = 120
+
+
 @dataclass(frozen=True)
 class ToolResult:
     output: str
@@ -18,6 +24,14 @@ class ToolResult:
 
 
 ToolHandler = Callable[[dict[str, Any], Workspace], ToolResult]
+
+
+@dataclass(frozen=True)
+class ToolRuntimeLimits:
+    max_output_chars: int = DEFAULT_MAX_OUTPUT_CHARS
+    max_file_read_bytes: int = DEFAULT_MAX_FILE_READ_BYTES
+    default_bash_timeout_seconds: int = DEFAULT_BASH_TIMEOUT_SECONDS
+    max_bash_timeout_seconds: int = DEFAULT_MAX_BASH_TIMEOUT_SECONDS
 
 
 @dataclass
@@ -108,6 +122,16 @@ def _read_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     if not path.is_file():
         return ToolResult(f"not a file: {args['path']}", is_error=True)
+    max_bytes = int(args.get("_max_file_read_bytes") or DEFAULT_MAX_FILE_READ_BYTES)
+    size = path.stat().st_size
+    if max_bytes > 0 and size > max_bytes:
+        return ToolResult(
+            f"file {args['path']} is {size} bytes and exceeds max_file_read_bytes={max_bytes}",
+            is_error=True,
+        )
+    sample = path.read_bytes()
+    if b"\x00" in sample[:8192]:
+        return ToolResult(f"refusing to read binary file: {args['path']}", is_error=True)
     return ToolResult(path.read_text(encoding="utf-8"))
 
 
@@ -137,6 +161,8 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
         if not path.is_file():
             continue
         try:
+            if b"\x00" in path.read_bytes()[:8192]:
+                continue
             for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
                 if query in line:
                     matches.append(f"{path.relative_to(workspace.root)}:{lineno}:{line}")
@@ -147,16 +173,22 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
 
 def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     command = str(args["command"])
-    timeout = int(args.get("timeout_seconds") or 30)
-    completed = subprocess.run(
-        command,
-        cwd=workspace.root,
-        shell=True,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-    )
+    default_timeout = int(args.get("_default_bash_timeout_seconds") or DEFAULT_BASH_TIMEOUT_SECONDS)
+    max_timeout = int(args.get("_max_bash_timeout_seconds") or DEFAULT_MAX_BASH_TIMEOUT_SECONDS)
+    requested_timeout = int(args.get("timeout_seconds") or default_timeout)
+    timeout = min(requested_timeout, max_timeout)
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=workspace.root,
+            shell=True,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return ToolResult(f"command timed out after {timeout} seconds", True)
     output = completed.stdout
     if completed.stderr:
         output += ("\n" if output else "") + completed.stderr
@@ -165,7 +197,38 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     return ToolResult(output)
 
 
-def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
+def _with_runtime_args(handler: ToolHandler, runtime_args: dict[str, Any]) -> ToolHandler:
+    def wrapped(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+        merged = {**runtime_args, **args}
+        return handler(merged, workspace)
+
+    return wrapped
+
+
+def default_tool_registry(
+    max_output_chars: int = DEFAULT_MAX_OUTPUT_CHARS,
+    *,
+    max_file_read_bytes: int = DEFAULT_MAX_FILE_READ_BYTES,
+    default_bash_timeout_seconds: int = DEFAULT_BASH_TIMEOUT_SECONDS,
+    max_bash_timeout_seconds: int = DEFAULT_MAX_BASH_TIMEOUT_SECONDS,
+) -> ToolRegistry:
+    limits = ToolRuntimeLimits(
+        max_output_chars=max_output_chars,
+        max_file_read_bytes=max_file_read_bytes,
+        default_bash_timeout_seconds=default_bash_timeout_seconds,
+        max_bash_timeout_seconds=max_bash_timeout_seconds,
+    )
+    read_handler = _with_runtime_args(
+        _read_file,
+        {"_max_file_read_bytes": limits.max_file_read_bytes},
+    )
+    bash_handler = _with_runtime_args(
+        _bash,
+        {
+            "_default_bash_timeout_seconds": limits.default_bash_timeout_seconds,
+            "_max_bash_timeout_seconds": limits.max_bash_timeout_seconds,
+        },
+    )
     registry = ToolRegistry()
     registry.register(
         Tool(
@@ -173,7 +236,7 @@ def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
             "List files under a workspace path.",
             _schema({"path": {"type": "string"}, "pattern": {"type": "string"}}, []),
             _list_files,
-            max_output_chars=max_output_chars,
+            max_output_chars=limits.max_output_chars,
         )
     )
     registry.register(
@@ -181,8 +244,8 @@ def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
             "read_file",
             "Read a UTF-8 file from the workspace.",
             _schema({"path": {"type": "string"}}, ["path"]),
-            _read_file,
-            max_output_chars=max_output_chars,
+            read_handler,
+            max_output_chars=limits.max_output_chars,
         )
     )
     registry.register(
@@ -192,7 +255,7 @@ def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
             _schema({"path": {"type": "string"}, "content": {"type": "string"}}, ["path", "content"]),
             _write_file,
             PermissionMode.WORKSPACE_WRITE,
-            max_output_chars=max_output_chars,
+            max_output_chars=limits.max_output_chars,
         )
     )
     registry.register(
@@ -205,7 +268,7 @@ def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
             ),
             _edit_file,
             PermissionMode.WORKSPACE_WRITE,
-            max_output_chars=max_output_chars,
+            max_output_chars=limits.max_output_chars,
         )
     )
     registry.register(
@@ -214,7 +277,7 @@ def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
             "Search for a literal string in workspace files.",
             _schema({"query": {"type": "string"}, "path": {"type": "string"}}, ["query"]),
             _grep,
-            max_output_chars=max_output_chars,
+            max_output_chars=limits.max_output_chars,
         )
     )
     registry.register(
@@ -225,9 +288,9 @@ def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
                 {"command": {"type": "string"}, "timeout_seconds": {"type": "integer"}},
                 ["command"],
             ),
-            _bash,
+            bash_handler,
             PermissionMode.DANGER,
-            max_output_chars=max_output_chars,
+            max_output_chars=limits.max_output_chars,
         )
     )
     return registry

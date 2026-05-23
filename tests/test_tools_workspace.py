@@ -57,3 +57,39 @@ def test_tool_output_is_truncated(tmp_path: Path) -> None:
 
     assert result.output.startswith("0123456789")
     assert "truncated" in result.output
+
+
+def test_read_file_rejects_files_over_size_limit(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry(max_file_read_bytes=4)
+    (tmp_path / "large.txt").write_text("12345", encoding="utf-8")
+
+    result = tools.get("read_file").run({"path": "large.txt"}, workspace, Policy(PermissionMode.READ_ONLY))
+
+    assert result.is_error
+    assert "exceeds max_file_read_bytes" in result.output
+
+
+def test_read_file_rejects_binary_files(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "bin.dat").write_bytes(b"\x00\x01\x02")
+
+    result = tools.get("read_file").run({"path": "bin.dat"}, workspace, Policy(PermissionMode.READ_ONLY))
+
+    assert result.is_error
+    assert "binary file" in result.output
+
+
+def test_bash_timeout_is_clamped(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry(default_bash_timeout_seconds=1, max_bash_timeout_seconds=1)
+
+    result = tools.get("bash").run(
+        {"command": "python3 -c 'import time; time.sleep(2)'", "timeout_seconds": 99},
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert result.is_error
+    assert "timed out" in result.output

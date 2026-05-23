@@ -130,7 +130,12 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         )
     kernel = AgentKernel(
         model=model,
-        tools=default_tool_registry(),
+        tools=default_tool_registry(
+            max_output_chars=config.max_output_chars,
+            max_file_read_bytes=config.max_file_read_bytes,
+            default_bash_timeout_seconds=config.default_bash_timeout_seconds,
+            max_bash_timeout_seconds=config.max_bash_timeout_seconds,
+        ),
         store=store,
         workspace=workspace,
         policy=Policy(
@@ -164,6 +169,10 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "permission",
         "allowed_tools",
         "denied_tools",
+        "max_output_chars",
+        "max_file_read_bytes",
+        "default_bash_timeout_seconds",
+        "max_bash_timeout_seconds",
         "max_iterations",
     ):
         value = getattr(args, attr, None)

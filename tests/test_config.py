@@ -18,6 +18,10 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "permission": "workspace-write",
           "allowed_tools": ["read_file", "write_file"],
           "denied_tools": ["bash"],
+          "max_output_chars": 100,
+          "max_file_read_bytes": 200,
+          "default_bash_timeout_seconds": 3,
+          "max_bash_timeout_seconds": 5,
           "max_iterations": 7
         }
         """,
@@ -32,5 +36,9 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.permission == "workspace-write"
     assert config.allowed_tools == ["read_file", "write_file"]
     assert config.denied_tools == ["bash"]
+    assert config.max_output_chars == 100
+    assert config.max_file_read_bytes == 200
+    assert config.default_bash_timeout_seconds == 3
+    assert config.max_bash_timeout_seconds == 5
     assert config.max_iterations == 7
     assert "from-config" not in config.redacted_dict().values()

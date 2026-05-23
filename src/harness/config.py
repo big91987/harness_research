@@ -21,6 +21,10 @@ class HarnessConfig:
     permission: str = "read-only"
     allowed_tools: list[str] | None = None
     denied_tools: list[str] | None = None
+    max_output_chars: int = 20_000
+    max_file_read_bytes: int = 1_000_000
+    default_bash_timeout_seconds: int = 30
+    max_bash_timeout_seconds: int = 120
     max_iterations: int = 20
 
     @classmethod
@@ -50,13 +54,23 @@ class HarnessConfig:
             "HARNESS_PERMISSION": "permission",
             "HARNESS_ALLOWED_TOOLS": "allowed_tools",
             "HARNESS_DENIED_TOOLS": "denied_tools",
+            "HARNESS_MAX_OUTPUT_CHARS": "max_output_chars",
+            "HARNESS_MAX_FILE_READ_BYTES": "max_file_read_bytes",
+            "HARNESS_DEFAULT_BASH_TIMEOUT_SECONDS": "default_bash_timeout_seconds",
+            "HARNESS_MAX_BASH_TIMEOUT_SECONDS": "max_bash_timeout_seconds",
             "HARNESS_MAX_ITERATIONS": "max_iterations",
         }
         for env_name, attr in mapping.items():
             value = os.environ.get(env_name)
             if value is None:
                 continue
-            if attr == "max_iterations":
+            if attr in {
+                "max_iterations",
+                "max_output_chars",
+                "max_file_read_bytes",
+                "default_bash_timeout_seconds",
+                "max_bash_timeout_seconds",
+            }:
                 setattr(self, attr, int(value))
             elif attr in {"allowed_tools", "denied_tools"}:
                 setattr(self, attr, [item.strip() for item in value.split(",") if item.strip()])

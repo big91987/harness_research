@@ -48,6 +48,59 @@ def test_bash_requires_danger_permission(tmp_path: Path) -> None:
     assert allowed.output == "ok"
 
 
+def test_move_path_moves_files_inside_workspace(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+    (tmp_path / "src.txt").write_text("payload", encoding="utf-8")
+
+    result = tools.get("move_path").run(
+        {"source": "src.txt", "destination": "nested/dst.txt"},
+        workspace,
+        policy,
+    )
+
+    assert not result.is_error
+    assert "moved src.txt to nested/dst.txt" in result.output
+    assert not (tmp_path / "src.txt").exists()
+    assert (tmp_path / "nested" / "dst.txt").read_text(encoding="utf-8") == "payload"
+
+
+def test_delete_path_deletes_file_and_recursive_directory(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+    (tmp_path / "old.txt").write_text("old", encoding="utf-8")
+    (tmp_path / "dir").mkdir()
+    (tmp_path / "dir" / "nested.txt").write_text("nested", encoding="utf-8")
+
+    file_result = tools.get("delete_path").run({"path": "old.txt"}, workspace, policy)
+    dir_result = tools.get("delete_path").run(
+        {"path": "dir", "recursive": True},
+        workspace,
+        policy,
+    )
+
+    assert not file_result.is_error
+    assert not dir_result.is_error
+    assert not (tmp_path / "old.txt").exists()
+    assert not (tmp_path / "dir").exists()
+
+
+def test_delete_path_refuses_nonempty_directory_without_recursive(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    policy = Policy(PermissionMode.WORKSPACE_WRITE)
+    (tmp_path / "dir").mkdir()
+    (tmp_path / "dir" / "nested.txt").write_text("nested", encoding="utf-8")
+
+    result = tools.get("delete_path").run({"path": "dir"}, workspace, policy)
+
+    assert result.is_error
+    assert "directory is not empty" in result.output
+    assert (tmp_path / "dir" / "nested.txt").exists()
+
+
 def test_tool_output_is_truncated(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry(max_output_chars=10)
@@ -119,6 +172,20 @@ def test_tool_reports_argument_type_errors(tmp_path: Path) -> None:
     assert "argument timeout_seconds must be integer" in result.output
 
 
+def test_tool_reports_boolean_argument_type_errors(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("delete_path").run(
+        {"path": "x", "recursive": "yes"},
+        workspace,
+        Policy(PermissionMode.WORKSPACE_WRITE),
+    )
+
+    assert result.is_error
+    assert "argument recursive must be boolean" in result.output
+
+
 def test_tool_reports_non_object_arguments(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -132,8 +199,12 @@ def test_tool_reports_non_object_arguments(tmp_path: Path) -> None:
 def test_tool_registry_describes_tools() -> None:
     registry = default_tool_registry()
 
-    description = registry.describe("read_file")
+    read_description = registry.describe("read_file")
+    delete_description = registry.describe("delete_path")
 
-    assert description["name"] == "read_file"
-    assert description["required_permission"] == "read-only"
-    assert description["parameters"]["required"] == ["path"]
+    assert read_description["name"] == "read_file"
+    assert read_description["required_permission"] == "read-only"
+    assert read_description["parameters"]["required"] == ["path"]
+    assert delete_description["name"] == "delete_path"
+    assert delete_description["required_permission"] == "workspace-write"
+    assert delete_description["parameters"]["required"] == ["path"]

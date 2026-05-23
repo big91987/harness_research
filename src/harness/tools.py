@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fnmatch
+import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -72,6 +73,8 @@ class Tool:
                 return f"argument {name} must be string"
             if expected_type == "integer" and (not isinstance(value, int) or isinstance(value, bool)):
                 return f"argument {name} must be integer"
+            if expected_type == "boolean" and not isinstance(value, bool):
+                return f"argument {name} must be boolean"
         return ""
 
     def _limit(self, result: ToolResult) -> ToolResult:
@@ -176,6 +179,40 @@ def _edit_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
         return ToolResult("old text not found", is_error=True)
     path.write_text(text.replace(old, new, 1), encoding="utf-8")
     return ToolResult(f"edited {path.relative_to(workspace.root)}")
+
+
+def _move_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    source = workspace.resolve(args["source"])
+    destination = workspace.resolve(args["destination"])
+    if not source.exists():
+        return ToolResult(f"source does not exist: {args['source']}", is_error=True)
+    if destination.exists():
+        return ToolResult(f"destination already exists: {args['destination']}", is_error=True)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(source), str(destination))
+    return ToolResult(
+        f"moved {source.relative_to(workspace.root)} to {destination.relative_to(workspace.root)}"
+    )
+
+
+def _delete_path(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    path = workspace.resolve(args["path"])
+    recursive = bool(args.get("recursive", False))
+    if not path.exists():
+        return ToolResult(f"path does not exist: {args['path']}", is_error=True)
+    if path.is_dir():
+        if recursive:
+            shutil.rmtree(path)
+        else:
+            if any(path.iterdir()):
+                return ToolResult(
+                    "directory is not empty; pass recursive=true to delete it",
+                    is_error=True,
+                )
+            path.rmdir()
+    else:
+        path.unlink()
+    return ToolResult(f"deleted {path.relative_to(workspace.root)}")
 
 
 def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
@@ -292,6 +329,32 @@ def default_tool_registry(
                 ["path", "old", "new"],
             ),
             _edit_file,
+            PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=limits.max_output_chars,
+        )
+    )
+    registry.register(
+        Tool(
+            "move_path",
+            "Move or rename a file or directory inside the workspace.",
+            _schema(
+                {"source": {"type": "string"}, "destination": {"type": "string"}},
+                ["source", "destination"],
+            ),
+            _move_path,
+            PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=limits.max_output_chars,
+        )
+    )
+    registry.register(
+        Tool(
+            "delete_path",
+            "Delete a file or directory inside the workspace.",
+            _schema(
+                {"path": {"type": "string"}, "recursive": {"type": "boolean"}},
+                ["path"],
+            ),
+            _delete_path,
             PermissionMode.WORKSPACE_WRITE,
             max_output_chars=limits.max_output_chars,
         )

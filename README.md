@@ -32,6 +32,7 @@ Implemented modules:
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
 - `harness.eval`: simple trace-based regression checks.
+- `harness.checkpoint`: workspace snapshot and restore manifests.
 
 ## Run Tests
 
@@ -91,6 +92,25 @@ PYTHONPATH=src python3 -m harness.cli eval \
   --max-tool-errors 0
 ```
 
+Replay a trace timeline:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli replay --trace /tmp/harness-trace.jsonl
+```
+
+Create and restore a workspace checkpoint:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli checkpoint \
+  --workspace /tmp/harness-ws \
+  --checkpoint-dir /tmp/harness-checkpoints \
+  --label before-risky-edit
+
+PYTHONPATH=src python3 -m harness.cli checkpoint \
+  --workspace /tmp/harness-ws \
+  --restore /tmp/harness-checkpoints/<checkpoint-id>/manifest.json
+```
+
 `prompt` permission mode asks for approval before mutating or dangerous tools:
 
 ```bash
@@ -102,6 +122,7 @@ Kernel failure behavior:
 - Unknown tools are converted into tool-result errors and returned to the model.
 - Model failures are recorded in trace and end the turn with `model_error`.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
+- Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
 
 `responses.json`:
 

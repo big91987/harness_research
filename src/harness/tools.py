@@ -27,15 +27,23 @@ class Tool:
     parameters: dict[str, Any]
     handler: ToolHandler
     required_permission: PermissionMode = PermissionMode.READ_ONLY
+    max_output_chars: int = 20_000
 
     def run(self, arguments: dict[str, Any], workspace: Workspace, policy: Policy) -> ToolResult:
         decision = policy.check(self.name, self.required_permission)
         if not decision.allowed:
             return ToolResult(decision.reason, is_error=True)
         try:
-            return self.handler(arguments, workspace)
+            return self._limit(self.handler(arguments, workspace))
         except Exception as exc:  # noqa: BLE001 - tool errors should return to model.
             return ToolResult(str(exc), is_error=True)
+
+    def _limit(self, result: ToolResult) -> ToolResult:
+        if self.max_output_chars <= 0 or len(result.output) <= self.max_output_chars:
+            return result
+        kept = result.output[: self.max_output_chars]
+        suffix = f"\n[truncated {len(result.output) - self.max_output_chars} chars]"
+        return ToolResult(kept + suffix, is_error=result.is_error)
 
     def definition(self) -> dict[str, Any]:
         return {
@@ -157,7 +165,7 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     return ToolResult(output)
 
 
-def default_tool_registry() -> ToolRegistry:
+def default_tool_registry(max_output_chars: int = 20_000) -> ToolRegistry:
     registry = ToolRegistry()
     registry.register(
         Tool(
@@ -165,6 +173,7 @@ def default_tool_registry() -> ToolRegistry:
             "List files under a workspace path.",
             _schema({"path": {"type": "string"}, "pattern": {"type": "string"}}, []),
             _list_files,
+            max_output_chars=max_output_chars,
         )
     )
     registry.register(
@@ -173,6 +182,7 @@ def default_tool_registry() -> ToolRegistry:
             "Read a UTF-8 file from the workspace.",
             _schema({"path": {"type": "string"}}, ["path"]),
             _read_file,
+            max_output_chars=max_output_chars,
         )
     )
     registry.register(
@@ -182,6 +192,7 @@ def default_tool_registry() -> ToolRegistry:
             _schema({"path": {"type": "string"}, "content": {"type": "string"}}, ["path", "content"]),
             _write_file,
             PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=max_output_chars,
         )
     )
     registry.register(
@@ -194,6 +205,7 @@ def default_tool_registry() -> ToolRegistry:
             ),
             _edit_file,
             PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=max_output_chars,
         )
     )
     registry.register(
@@ -202,6 +214,7 @@ def default_tool_registry() -> ToolRegistry:
             "Search for a literal string in workspace files.",
             _schema({"query": {"type": "string"}, "path": {"type": "string"}}, ["query"]),
             _grep,
+            max_output_chars=max_output_chars,
         )
     )
     registry.register(
@@ -214,7 +227,7 @@ def default_tool_registry() -> ToolRegistry:
             ),
             _bash,
             PermissionMode.DANGER,
+            max_output_chars=max_output_chars,
         )
     )
     return registry
-

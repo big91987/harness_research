@@ -4,6 +4,7 @@ __all__ = [
     "context",
     "config",
     "eval",
+    "checkpoint",
     "kernel",
     "memory",
     "model",

@@ -46,3 +46,14 @@ def test_bash_requires_danger_permission(tmp_path: Path) -> None:
 
     allowed = tools.get("bash").run({"command": "printf ok"}, workspace, Policy(PermissionMode.DANGER))
     assert allowed.output == "ok"
+
+
+def test_tool_output_is_truncated(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry(max_output_chars=10)
+    (tmp_path / "long.txt").write_text("0123456789abcdef", encoding="utf-8")
+
+    result = tools.get("read_file").run({"path": "long.txt"}, workspace, Policy(PermissionMode.READ_ONLY))
+
+    assert result.output.startswith("0123456789")
+    assert "truncated" in result.output

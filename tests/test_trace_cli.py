@@ -91,3 +91,23 @@ def test_cli_eval_command_passes_and_fails(tmp_path: Path) -> None:
     )
     assert failed.returncode == 1
     assert "passed: False" in failed.stdout
+
+
+def test_cli_replay_prints_trace_timeline(tmp_path: Path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    recorder = TraceRecorder(trace)
+    recorder.record("turn_start", session_id="s1", user_input="hi")
+    recorder.record("tool_call", session_id="s1", name="read_file", is_error=False)
+    recorder.record("turn_end", session_id="s1", stop_reason="final_answer", final_text="done")
+
+    result = subprocess.run(
+        [sys.executable, "-m", "harness.cli", "replay", "--trace", str(trace)],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert "turn_start" in result.stdout
+    assert "tool_call read_file ok" in result.stdout
+    assert "turn_end final_answer" in result.stdout

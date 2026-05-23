@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
 from harness.eval import EvalExpectation, evaluate_trace
@@ -59,6 +60,15 @@ def build_parser() -> argparse.ArgumentParser:
     eval_cmd.add_argument("--max-tool-errors", type=int)
     eval_cmd.add_argument("--require-tool", action="append", default=[])
     eval_cmd.add_argument("--final-text-contains")
+
+    replay = subparsers.add_parser("replay", help="Print trace events as a compact timeline.")
+    replay.add_argument("--trace")
+
+    checkpoint = subparsers.add_parser("checkpoint", help="Create or restore workspace checkpoints.")
+    checkpoint.add_argument("--workspace")
+    checkpoint.add_argument("--checkpoint-dir", default=".harness/checkpoints")
+    checkpoint.add_argument("--label", default="")
+    checkpoint.add_argument("--restore", help="Path to a checkpoint manifest.json to restore.")
 
     doctor = subparsers.add_parser("doctor", help="Print local harness diagnostics.")
     doctor.add_argument("--workspace")
@@ -214,6 +224,32 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{key}: {value}")
         print(f"passed: {report.passed}")
         return 0 if report.passed else 1
+    if args.command == "replay":
+        config = _merged_config(args)
+        for event in TraceRecorder(config.trace).read_events():
+            event_type = event.get("type")
+            if event_type == "turn_start":
+                print(f"turn_start {event.get('session_id')} {event.get('user_input')}")
+            elif event_type == "tool_call":
+                status = "error" if event.get("is_error") else "ok"
+                print(f"tool_call {event.get('name')} {status}")
+            elif event_type == "turn_end":
+                print(f"turn_end {event.get('stop_reason')} {event.get('final_text')}")
+            else:
+                print(str(event_type))
+        return 0
+    if args.command == "checkpoint":
+        config = _merged_config(args)
+        if args.restore:
+            checkpoint = WorkspaceCheckpoint.restore(args.restore, config.workspace)
+            print(f"restored: {checkpoint.id}")
+            print(f"files: {len(checkpoint.files)}")
+        else:
+            checkpoint = WorkspaceCheckpoint.create(config.workspace, args.checkpoint_dir, label=args.label)
+            print(f"checkpoint: {checkpoint.id}")
+            print(f"manifest: {checkpoint.manifest_path}")
+            print(f"files: {len(checkpoint.files)}")
+        return 0
     if args.command == "doctor":
         config = _merged_config(args)
         workspace = Workspace(config.workspace)

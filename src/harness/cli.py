@@ -202,6 +202,7 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--work-dir", default=".harness/verify")
     verify.add_argument("--skip-tests", action="store_true")
     verify.add_argument("--skip-compile", action="store_true")
+    verify.add_argument("--skip-config-validation", action="store_true")
     verify.add_argument("--skip-mock-smoke", action="store_true")
     verify.add_argument("--live-smoke", action="store_true")
 
@@ -836,6 +837,7 @@ def main(argv: list[str] | None = None) -> int:
             VerifyOptions(
                 root=Path.cwd(),
                 work_dir=Path(args.work_dir),
+                run_config_validation=not args.skip_config_validation,
                 run_tests=not args.skip_tests,
                 run_compile=not args.skip_compile,
                 run_mock_smoke=not args.skip_mock_smoke,

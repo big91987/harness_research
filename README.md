@@ -57,6 +57,7 @@ PYTHONPATH=src python3 -m harness.cli verify
 
 This runs:
 
+- config validation
 - unit tests
 - `compileall`
 - a mock end-to-end tool loop smoke test

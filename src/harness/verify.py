@@ -14,6 +14,7 @@ from harness.config import HarnessConfig
 class VerifyOptions:
     root: Path
     work_dir: Path
+    run_config_validation: bool = True
     run_tests: bool = True
     run_compile: bool = True
     run_mock_smoke: bool = True
@@ -44,6 +45,9 @@ def run_verify(options: VerifyOptions) -> VerifyReport:
     env = {**os.environ, "PYTHONPATH": str(root / "src")}
     results: dict[str, VerifyResult] = {}
 
+    if options.run_config_validation:
+        results["config_validation"] = _run_config_validation(options.config)
+
     if options.run_tests:
         results["pytest"] = _run("pytest", [sys.executable, "-m", "pytest"], root, env)
 
@@ -63,6 +67,15 @@ def run_verify(options: VerifyOptions) -> VerifyReport:
         results["live_smoke"] = _run_live_smoke(root, work_dir, env, options.config)
 
     return VerifyReport(results)
+
+
+def _run_config_validation(config: HarnessConfig) -> VerifyResult:
+    issues = config.validate()
+    errors = [issue for issue in issues if issue.level == "error"]
+    if not issues:
+        return VerifyResult("config_validation", True, "valid")
+    output = "\n".join(f"{issue.level}: {issue.key} - {issue.message}" for issue in issues)
+    return VerifyResult("config_validation", not errors, output)
 
 
 def _run(name: str, command: list[str], cwd: Path, env: dict[str, str]) -> VerifyResult:

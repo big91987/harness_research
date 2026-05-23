@@ -41,6 +41,43 @@ def test_live_smoke_is_skipped_without_opt_in(tmp_path: Path) -> None:
     assert "live_smoke" not in report.results
 
 
+def test_verify_fails_invalid_config(tmp_path: Path) -> None:
+    report = run_verify(
+        VerifyOptions(
+            root=Path.cwd(),
+            work_dir=tmp_path,
+            run_tests=False,
+            run_compile=False,
+            run_mock_smoke=False,
+            run_live_smoke=False,
+            config=HarnessConfig(permission="invalid", max_iterations=0),
+        )
+    )
+
+    assert not report.passed
+    assert "config_validation" in report.results
+    assert "permission" in report.results["config_validation"].output
+    assert "max_iterations" in report.results["config_validation"].output
+
+
+def test_verify_can_skip_config_validation(tmp_path: Path) -> None:
+    report = run_verify(
+        VerifyOptions(
+            root=Path.cwd(),
+            work_dir=tmp_path,
+            run_tests=False,
+            run_compile=False,
+            run_mock_smoke=False,
+            run_live_smoke=False,
+            run_config_validation=False,
+            config=HarnessConfig(permission="invalid"),
+        )
+    )
+
+    assert report.passed
+    assert "config_validation" not in report.results
+
+
 def test_live_smoke_requires_expected_text(tmp_path: Path, monkeypatch) -> None:
     def fake_run(name, command, cwd, env):  # noqa: ANN001 - test double matches private helper.
         return VerifyResult(name, True, "model said something else")
@@ -105,3 +142,31 @@ def test_cli_verify_quick_smoke(tmp_path: Path) -> None:
 
     assert "mock_smoke: passed" in result.stdout
     assert "overall: True" in result.stdout
+
+
+def test_cli_verify_fails_invalid_config(tmp_path: Path) -> None:
+    config = tmp_path / "harness.json"
+    config.write_text('{"permission": "invalid"}', encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config),
+            "verify",
+            "--work-dir",
+            str(tmp_path / "verify"),
+            "--skip-tests",
+            "--skip-compile",
+            "--skip-mock-smoke",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert result.returncode == 1
+    assert "config_validation: failed" in result.stdout
+    assert "permission" in result.stdout

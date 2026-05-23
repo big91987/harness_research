@@ -90,7 +90,10 @@ PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json run 
 Validate the generated trace:
 
 ```bash
+PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json config --validate
 PYTHONPATH=src python3 -m harness.cli golden /tmp/my-harness/samples/golden.json
+PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json trace --sessions
+PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json audit --summary
 PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json doctor
 ```
 

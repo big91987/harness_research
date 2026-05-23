@@ -50,6 +50,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "default_bash_timeout_seconds": 30,
             "max_bash_timeout_seconds": 120,
             "model": "gpt-4.1-mini",
+            "model_timeout_seconds": 120,
             "max_iterations": 20,
             "max_model_retries": 0,
             "input_cost_per_million_tokens": 0.0,

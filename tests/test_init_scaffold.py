@@ -18,6 +18,7 @@ def test_scaffold_project_writes_config_and_samples(tmp_path: Path) -> None:
     assert config["skill_dir"].endswith("skills")
     assert config["task_dir"].endswith("tasks")
     assert config["hook_config"].endswith("hooks.json")
+    assert config["model_timeout_seconds"] == 120
     assert (tmp_path / "hooks.json").exists()
     responses = json.loads(result.mock_responses_path.read_text(encoding="utf-8"))
     assert responses[0]["tool_calls"][0]["name"] == "write_file"
@@ -54,3 +55,63 @@ def test_cli_init_outputs_runnable_project(tmp_path: Path) -> None:
     )
     assert "created sample.txt" in run.stdout
     assert (tmp_path / "workspace" / "sample.txt").read_text(encoding="utf-8") == "hello from harness"
+
+    config_check = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config_path),
+            "config",
+            "--validate",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "valid: True" in config_check.stdout
+
+    golden = subprocess.run(
+        [sys.executable, "-m", "harness.cli", "golden", str(tmp_path / "samples" / "golden.json")],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "passed: True" in golden.stdout
+
+    trace_sessions = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config_path),
+            "trace",
+            "--sessions",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "final_answer" in trace_sessions.stdout
+
+    audit_summary = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "--config",
+            str(config_path),
+            "audit",
+            "--summary",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "events:" in audit_summary.stdout

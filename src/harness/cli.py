@@ -99,6 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     sessions = subparsers.add_parser("sessions", help="List local sessions.")
     sessions.add_argument("--session-dir")
     sessions.add_argument("--show", help="Show one session summary.")
+    sessions.add_argument("--history", help="Show all saved snapshots for one session.")
     sessions.add_argument("--export", dest="export_session", help="Export one session to a JSON bundle.")
     sessions.add_argument("--import", dest="import_session", help="Import a session JSON bundle.")
     sessions.add_argument("--compact", help="Compact and persist one session.")
@@ -429,6 +430,25 @@ def _print_task(task) -> None:  # noqa: ANN001 - keep CLI formatting decoupled f
         print(f"session: {task.session_id}")
 
 
+def _session_snapshot_summary(index: int, session: Session) -> dict:
+    last = session.messages[-1] if session.messages else None
+    return {
+        "index": index,
+        "id": session.id,
+        "workspace": session.workspace,
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+        "messages": len(session.messages),
+        "usage_prompt_tokens": int(session.usage.get("prompt_tokens", 0)),
+        "usage_completion_tokens": int(session.usage.get("completion_tokens", 0)),
+        "usage_total_tokens": int(session.usage.get("total_tokens", 0)),
+        "cost_usd": session.cost_usd,
+        "last_role": last.role if last else None,
+        "last_content": last.content if last else "",
+        "metadata": dict(session.metadata),
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -648,6 +668,20 @@ def main(argv: list[str] | None = None) -> int:
             last = session.messages[-1] if session.messages else None
             if last:
                 print(f"last_{last.role}: {last.content}")
+        elif args.history:
+            snapshots = store.history(args.history)
+            if not snapshots:
+                raise SystemExit(f"session not found: {args.history}")
+            rows = [_session_snapshot_summary(index, snapshot) for index, snapshot in enumerate(snapshots, start=1)]
+            if args.json:
+                print(json.dumps(rows, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            for row in rows:
+                last_role = row.get("last_role") or ""
+                print(
+                    f"{row['index']} messages={row['messages']} "
+                    f"updated_at={row['updated_at']} last_role={last_role}"
+                )
         else:
             summaries = store.summaries(workspace_contains=args.workspace_contains, limit=args.limit)
             if args.json:

@@ -1,4 +1,8 @@
 from pathlib import Path
+import json
+import os
+import subprocess
+import sys
 
 from harness.context import ContextManager
 from harness.schema import Message
@@ -17,6 +21,36 @@ def test_jsonl_session_store_round_trips_messages(tmp_path: Path) -> None:
     assert loaded is not None
     assert loaded.id == session.id
     assert [m.content for m in loaded.messages] == ["hello", "world"]
+
+
+def test_jsonl_session_store_appends_snapshots_and_loads_latest(tmp_path: Path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = Session.new(workspace=str(tmp_path / "ws"))
+    session.messages.append(Message.user("first"))
+    store.save(session)
+    session.messages.append(Message.assistant("second"))
+    store.save(session)
+
+    lines = store.path_for(session.id).read_text(encoding="utf-8").splitlines()
+    loaded = store.load(session.id)
+
+    assert len(lines) == 2
+    assert loaded is not None
+    assert [message.content for message in loaded.messages] == ["first", "second"]
+
+
+def test_jsonl_session_store_loads_history(tmp_path: Path) -> None:
+    store = JsonlSessionStore(tmp_path)
+    session = Session.new(workspace=str(tmp_path / "ws"))
+    session.messages.append(Message.user("first"))
+    store.save(session)
+    session.messages.append(Message.assistant("second"))
+    store.save(session)
+
+    history = store.history(session.id)
+
+    assert len(history) == 2
+    assert [len(snapshot.messages) for snapshot in history] == [1, 2]
 
 
 def test_session_bundle_exports_and_imports_session(tmp_path: Path) -> None:
@@ -56,6 +90,37 @@ def test_session_store_lists_summaries_and_filters_by_workspace(tmp_path: Path) 
     assert summaries[0]["cost_usd"] == 0.001
     assert summaries[0]["last_role"] == "assistant"
     assert summaries[0]["last_content"] == "done"
+
+
+def test_cli_sessions_can_show_snapshot_history(tmp_path: Path) -> None:
+    store = JsonlSessionStore(tmp_path / "sessions")
+    session = Session.new(workspace=str(tmp_path / "ws"))
+    session.messages.append(Message.user("first"))
+    store.save(session)
+    session.messages.append(Message.assistant("second"))
+    store.save(session)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--history",
+            session.id,
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+    assert [snapshot["messages"] for snapshot in payload] == [1, 2]
+    assert payload[1]["last_role"] == "assistant"
 
 
 def test_context_manager_compacts_middle_messages() -> None:

@@ -176,7 +176,16 @@ PYTHONPATH=src python3 -m harness.cli sessions \
   --session-dir /tmp/harness-sessions \
   --workspace-contains harness-ws \
   --json
+
+PYTHONPATH=src python3 -m harness.cli sessions \
+  --session-dir /tmp/harness-sessions \
+  --history <session-id> \
+  --json
 ```
+
+Session files are append-only JSONL snapshots. `sessions --history` shows each
+saved snapshot, which is useful for debugging long tool loops and future resume
+flows.
 
 Compact a long session into a persistent summary plus recent messages:
 

@@ -62,7 +62,7 @@ class JsonlSessionStore:
     def save(self, session: Session) -> None:
         session.updated_at = time()
         path = self.path_for(session.id)
-        with path.open("w", encoding="utf-8") as handle:
+        with path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(session.to_dict(), ensure_ascii=False) + "\n")
 
     def load(self, session_id: str) -> Session | None:
@@ -77,6 +77,17 @@ class JsonlSessionStore:
         if not last:
             return None
         return Session.from_dict(json.loads(last))
+
+    def history(self, session_id: str) -> list[Session]:
+        path = self.path_for(session_id)
+        if not path.exists():
+            return []
+        snapshots: list[Session] = []
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    snapshots.append(Session.from_dict(json.loads(line)))
+        return snapshots
 
     def list(self) -> list[str]:
         return sorted(path.stem for path in self.root.glob("*.jsonl"))

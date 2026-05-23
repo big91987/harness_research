@@ -12,6 +12,7 @@ from harness.context import ContextManager
 from harness.cost import ModelPricing, RuntimeBudget
 from harness.doctor import DoctorReport
 from harness.eval import EvalExpectation, evaluate_trace, run_golden_suite
+from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
@@ -42,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--artifact-dir")
     run.add_argument("--memory-dir")
     run.add_argument("--skill-dir")
+    run.add_argument("--hook-config")
     run.add_argument("--base-url")
     run.add_argument("--api-key")
     run.add_argument("--model")
@@ -165,6 +167,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
         audit=AuditLog(config.audit),
         memory=MarkdownMemoryStore(config.memory_dir),
         skills=SkillStore(config.skill_dir),
+        hooks=HookRunner.from_config(config.hook_config, cwd=workspace.root),
         pricing=ModelPricing(
             input_cost_per_million_tokens=config.input_cost_per_million_tokens,
             output_cost_per_million_tokens=config.output_cost_per_million_tokens,
@@ -188,6 +191,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "artifact_dir",
         "memory_dir",
         "skill_dir",
+        "hook_config",
         "base_url",
         "api_key",
         "model",

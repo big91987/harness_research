@@ -26,6 +26,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
         directory.mkdir(parents=True, exist_ok=True)
 
     config_path = root_path / "harness.json"
+    hooks_path = root_path / "hooks.json"
     responses_path = samples / "mock_responses.json"
     golden_path = samples / "golden.json"
 
@@ -39,6 +40,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "artifact_dir": str(artifacts),
             "memory_dir": str(memory),
             "skill_dir": str(skills),
+            "hook_config": str(hooks_path),
             "permission": "workspace-write",
             "denied_tools": ["bash"],
             "max_output_chars": 20000,
@@ -54,6 +56,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
         },
         overwrite=overwrite,
     )
+    _write_json(hooks_path, {"hooks": []}, overwrite=overwrite)
     _write_json(
         responses_path,
         [

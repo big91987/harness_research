@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from harness.audit import AuditLog
 from harness.context import ContextManager
 from harness.cost import ModelPricing, RuntimeBudget, canonical_usage
+from harness.hooks import HookRunnerProtocol
 from harness.memory import MarkdownMemoryStore
 from harness.model import ModelClient
 from harness.permissions import Policy
@@ -33,6 +34,7 @@ class AgentKernel:
     audit: AuditLog | None = None
     memory: MarkdownMemoryStore | None = None
     skills: SkillStore | None = None
+    hooks: HookRunnerProtocol | None = None
     pricing: ModelPricing = ModelPricing()
     budget: RuntimeBudget = RuntimeBudget()
     system_prompt: str = DEFAULT_SYSTEM_PROMPT
@@ -44,6 +46,7 @@ class AgentKernel:
         context = self.context or ContextManager()
         session.messages.append(Message.user(user_input))
         trace.record("turn_start", session_id=session.id, user_input=user_input)
+        self._run_hooks(trace, "turn_start", {"session_id": session.id, "user_input": user_input})
         final_text = ""
         iterations = 0
         stop_reason = "max_iterations"
@@ -123,6 +126,15 @@ class AgentKernel:
                     allowed=not result.is_error,
                     is_error=result.is_error,
                 )
+                self._run_hooks(
+                    trace,
+                    "tool_call",
+                    {
+                        "session_id": session.id,
+                        "name": call.name,
+                        "is_error": result.is_error,
+                    },
+                )
                 session.messages.append(Message.tool(call.id, call.name, result.output))
                 if result.is_error:
                     trace.record("tool_error", session_id=session.id, name=call.name, output=result.output)
@@ -137,6 +149,16 @@ class AgentKernel:
             stop_reason=stop_reason,
             final_text=final_text,
         )
+        self._run_hooks(
+            trace,
+            "turn_end",
+            {
+                "session_id": session.id,
+                "iterations": iterations,
+                "stop_reason": stop_reason,
+                "final_text": final_text,
+            },
+        )
         return TurnResult(session.id, final_text, iterations, stop_reason)
 
     def _record_usage(self, session: Session, usage: dict) -> float:
@@ -146,3 +168,16 @@ class AgentKernel:
         cost_usd = self.pricing.estimate(usage)
         session.cost_usd += cost_usd
         return cost_usd
+
+    def _run_hooks(self, trace: TraceRecorder, event_type: str, payload: dict) -> None:
+        if not self.hooks:
+            return
+        for result in self.hooks.run(event_type, payload):
+            trace.record(
+                "hook_result",
+                event=result.event,
+                command=result.command,
+                returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )

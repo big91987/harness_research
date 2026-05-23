@@ -31,6 +31,7 @@ Implemented modules:
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
 - `harness.skills`: Markdown-backed skill registry, search, and prompt injection.
+- `harness.hooks`: local lifecycle command hooks for harness events.
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
 - `harness.cost`: canonical usage normalization and model cost estimation.
@@ -122,6 +123,7 @@ Config-driven run:
   "trace": "/tmp/harness-trace.jsonl",
   "memory_dir": "/tmp/harness-memory",
   "skill_dir": "/tmp/harness-skills",
+  "hook_config": "/tmp/harness-hooks.json",
   "permission": "workspace-write",
   "input_cost_per_million_tokens": 0.0,
   "output_cost_per_million_tokens": 0.0,
@@ -229,6 +231,29 @@ PYTHONPATH=src python3 -m harness.cli skills \
 Skills are stored as Markdown files and injected into the model context when they
 match the current user request.
 
+Configure lifecycle hooks:
+
+```json
+{
+  "hooks": [
+    {
+      "event": "turn_end",
+      "command": ["python3", "/tmp/harness-hook.py"],
+      "timeout_seconds": 5
+    }
+  ]
+}
+```
+
+```bash
+PYTHONPATH=src python3 -m harness.cli run "say hi" \
+  --hook-config /tmp/harness-hooks.json \
+  --mock-final "hi"
+```
+
+Hook commands receive event JSON on stdin. They are executed without a shell,
+and failures are recorded as `hook_result` trace events instead of blocking the turn.
+
 Doctor checks local writability and harness readiness:
 
 ```bash
@@ -295,6 +320,7 @@ Kernel failure behavior:
 - Session state also aggregates estimated cost when model pricing is configured.
 - Relevant Markdown skills are injected into the system context for each turn.
 - Runtime budget overruns stop the turn before additional tool calls execute.
+- Lifecycle hooks can observe `turn_start`, `tool_call`, and `turn_end` events.
 - Tool calls, tool errors, model calls, model responses, and turn endings are recorded as JSONL.
 - Tool outputs are bounded before they are returned to the model, so large files or commands do not explode the active context.
 - Tool calls are also written to an audit log when configured.

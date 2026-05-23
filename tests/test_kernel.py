@@ -2,6 +2,7 @@ from pathlib import Path
 
 from harness.audit import AuditLog
 from harness.cost import ModelPricing, RuntimeBudget
+from harness.hooks import HookResult
 from harness.kernel import AgentKernel
 from harness.model import FakeModelClient
 from harness.permissions import PermissionMode, Policy
@@ -11,6 +12,15 @@ from harness.skills import SkillStore
 from harness.tools import default_tool_registry
 from harness.trace import TraceRecorder
 from harness.workspace import Workspace
+
+
+class RecordingHooks:
+    def __init__(self) -> None:
+        self.events = []
+
+    def run(self, event_type, payload):  # noqa: ANN001
+        self.events.append((event_type, payload))
+        return [HookResult(event=event_type, command=["record"], returncode=0, stdout="", stderr="")]
 
 
 def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
@@ -56,6 +66,28 @@ def test_kernel_runs_tool_loop_and_persists_trace(tmp_path: Path) -> None:
     assert '"tool_call"' in trace_text
     audit_text = (tmp_path / "audit.jsonl").read_text()
     assert '"action": "write_file"' in audit_text
+
+
+def test_kernel_emits_lifecycle_hooks(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    hooks = RecordingHooks()
+    kernel = AgentKernel(
+        model=FakeModelClient([ModelResponse(content="ok")]),
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        hooks=hooks,
+        trace=TraceRecorder(tmp_path / "trace.jsonl"),
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "hi")
+
+    assert result.stop_reason == "final_answer"
+    event_types = [event_type for event_type, _ in hooks.events]
+    assert event_types == ["turn_start", "turn_end"]
+    assert hooks.events[-1][1]["stop_reason"] == "final_answer"
+    assert '"hook_result"' in (tmp_path / "trace.jsonl").read_text()
 
 
 def test_kernel_stops_on_final_answer_without_tools(tmp_path: Path) -> None:

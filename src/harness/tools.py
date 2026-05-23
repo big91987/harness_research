@@ -268,6 +268,9 @@ def _grep(args: dict[str, Any], workspace: Workspace) -> ToolResult:
 
 def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     command = str(args["command"])
+    cwd = workspace.resolve(args.get("cwd") or ".")
+    if not cwd.is_dir():
+        return ToolResult(f"cwd is not a directory: {args.get('cwd') or '.'}", is_error=True)
     extra_env = {str(key): str(value) for key, value in dict(args.get("env") or {}).items()}
     env = {**os.environ, **extra_env}
     default_timeout = int(args.get("_default_bash_timeout_seconds") or DEFAULT_BASH_TIMEOUT_SECONDS)
@@ -277,7 +280,7 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     try:
         completed = subprocess.run(
             command,
-            cwd=workspace.root,
+            cwd=cwd,
             shell=True,
             text=True,
             capture_output=True,
@@ -431,6 +434,7 @@ def default_tool_registry(
             _schema(
                 {
                     "command": {"type": "string"},
+                    "cwd": {"type": "string"},
                     "timeout_seconds": {"type": "integer"},
                     "env": {"type": "object"},
                 },

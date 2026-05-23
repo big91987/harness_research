@@ -240,6 +240,36 @@ def test_bash_accepts_structured_environment_variables(tmp_path: Path) -> None:
     assert result.output == "from-env"
 
 
+def test_bash_can_run_from_workspace_subdirectory(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "pkg").mkdir()
+
+    result = tools.get("bash").run(
+        {"command": "pwd && printf ok > result.txt", "cwd": "pkg"},
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert not result.is_error
+    assert result.output.strip().endswith("/pkg")
+    assert (tmp_path / "pkg" / "result.txt").read_text(encoding="utf-8") == "ok"
+
+
+def test_bash_cwd_stays_inside_workspace(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    result = tools.get("bash").run(
+        {"command": "pwd", "cwd": ".."},
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert result.is_error
+    assert "outside workspace" in result.output
+
+
 def test_tool_reports_missing_required_argument(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()

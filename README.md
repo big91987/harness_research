@@ -482,7 +482,7 @@ PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --permission danger \
   --call bash \
-  --args-json '{"command":"printf \"$HARNESS_MODE\"","env":{"HARNESS_MODE":"local"}}'
+  --args-json '{"command":"printf \"$HARNESS_MODE\"","cwd":"pkg","env":{"HARNESS_MODE":"local"}}'
 
 PYTHONPATH=src python3 -m harness.cli run "inspect only" \
   --permission danger \

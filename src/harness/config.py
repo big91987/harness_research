@@ -33,6 +33,7 @@ class HarnessConfig:
     top_p: float | None = None
     max_tokens: int | None = None
     permission: str = "read-only"
+    tool_profile: str = "coding"
     allowed_tools: list[str] | None = None
     denied_tools: list[str] | None = None
     max_output_chars: int = 20_000
@@ -79,6 +80,7 @@ class HarnessConfig:
             "HARNESS_TOP_P": "top_p",
             "HARNESS_MAX_TOKENS": "max_tokens",
             "HARNESS_PERMISSION": "permission",
+            "HARNESS_TOOL_PROFILE": "tool_profile",
             "HARNESS_ALLOWED_TOOLS": "allowed_tools",
             "HARNESS_DENIED_TOOLS": "denied_tools",
             "HARNESS_MAX_OUTPUT_CHARS": "max_output_chars",
@@ -132,6 +134,8 @@ class HarnessConfig:
         issues: list[ConfigIssue] = []
         if self.permission not in {"read-only", "workspace-write", "danger", "prompt"}:
             issues.append(ConfigIssue("error", "permission", f"unknown permission: {self.permission}"))
+        if self.tool_profile not in {"safe", "coding"}:
+            issues.append(ConfigIssue("error", "tool_profile", f"unknown tool profile: {self.tool_profile}"))
         issues.extend(
             _check_minimum(
                 {

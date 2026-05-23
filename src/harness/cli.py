@@ -57,6 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--top-p", type=float)
     run.add_argument("--max-tokens", type=int)
     run.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
+    run.add_argument("--tool-profile", choices=["safe", "coding"])
     run.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
     run.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
     run.add_argument("--max-iterations", type=int)
@@ -74,6 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
     tools.add_argument("--args-file", help="Path to a JSON object arguments file for --call.")
     tools.add_argument("--workspace")
     tools.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
+    tools.add_argument("--tool-profile", choices=["safe", "coding"])
     tools.add_argument("--audit")
     tools.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
     tools.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
@@ -265,6 +267,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
             default_bash_timeout_seconds=config.default_bash_timeout_seconds,
             max_bash_timeout_seconds=config.max_bash_timeout_seconds,
             sandbox_runner=config.sandbox_runner,
+            tool_profile=config.tool_profile,
         ),
         store=store,
         workspace=workspace,
@@ -316,6 +319,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "top_p",
         "max_tokens",
         "permission",
+        "tool_profile",
         "allowed_tools",
         "denied_tools",
         "max_output_chars",
@@ -457,6 +461,7 @@ def main(argv: list[str] | None = None) -> int:
             default_bash_timeout_seconds=config.default_bash_timeout_seconds,
             max_bash_timeout_seconds=config.max_bash_timeout_seconds,
             sandbox_runner=config.sandbox_runner,
+            tool_profile=config.tool_profile,
         )
         if args.call:
             try:
@@ -914,7 +919,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "doctor":
         config = _merged_config(args)
-        tools = default_tool_registry()
+        tools = default_tool_registry(tool_profile=config.tool_profile)
         report = DoctorReport.build(
             workspace=config.workspace,
             session_dir=config.session_dir,

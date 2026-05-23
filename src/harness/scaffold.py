@@ -44,6 +44,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "task_dir": str(tasks),
             "hook_config": str(hooks_path),
             "permission": "workspace-write",
+            "tool_profile": "coding",
             "denied_tools": ["bash"],
             "max_output_chars": 20000,
             "max_file_read_bytes": 1000000,

@@ -23,6 +23,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "top_p": 0.9,
           "max_tokens": 512,
           "permission": "workspace-write",
+          "tool_profile": "coding",
           "allowed_tools": ["read_file", "write_file"],
           "denied_tools": ["bash"],
           "max_output_chars": 100,
@@ -56,6 +57,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.top_p == 0.9
     assert config.max_tokens == 512
     assert config.permission == "workspace-write"
+    assert config.tool_profile == "coding"
     assert config.allowed_tools == ["read_file", "write_file"]
     assert config.denied_tools == ["bash"]
     assert config.max_output_chars == 100
@@ -85,6 +87,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_TOP_P", "0.75")
     monkeypatch.setenv("HARNESS_MAX_TOKENS", "2048")
     monkeypatch.setenv("HARNESS_SANDBOX_RUNNER", "python3 /tmp/env-runner.py")
+    monkeypatch.setenv("HARNESS_TOOL_PROFILE", "safe")
 
     config = HarnessConfig.load()
 
@@ -100,11 +103,13 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.top_p == 0.75
     assert config.max_tokens == 2048
     assert config.sandbox_runner == "python3 /tmp/env-runner.py"
+    assert config.tool_profile == "safe"
 
 
 def test_config_validate_reports_errors_and_warnings() -> None:
     config = HarnessConfig(
         permission="root",
+        tool_profile="unknown",
         base_url="https://api.example.com",
         api_key=None,
         allowed_tools=["read_file", "bash"],
@@ -125,6 +130,7 @@ def test_config_validate_reports_errors_and_warnings() -> None:
     errors = {issue.key for issue in issues if issue.level == "error"}
     warnings = {issue.key for issue in issues if issue.level == "warn"}
     assert "permission" in errors
+    assert "tool_profile" in errors
     assert "max_iterations" in errors
     assert "model_timeout_seconds" in errors
     assert "max_model_retries" in errors

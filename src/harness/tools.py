@@ -22,6 +22,25 @@ DEFAULT_MAX_BASH_TIMEOUT_SECONDS = 120
 TOOL_CATEGORY_FILESYSTEM = "filesystem"
 TOOL_CATEGORY_SEARCH = "search"
 TOOL_CATEGORY_EXECUTION = "execution"
+TOOL_PROFILE_SAFE = "safe"
+TOOL_PROFILE_CODING = "coding"
+TOOL_PROFILES: dict[str, tuple[str, ...]] = {
+    TOOL_PROFILE_SAFE: ("diff_file", "grep", "list_files", "read_file"),
+    TOOL_PROFILE_CODING: (
+        "append_file",
+        "bash",
+        "copy_path",
+        "delete_path",
+        "diff_file",
+        "edit_file",
+        "grep",
+        "list_files",
+        "make_directory",
+        "move_path",
+        "read_file",
+        "write_file",
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -141,6 +160,13 @@ class ToolRegistry:
 
     def names(self) -> list[str]:
         return sorted(self._tools)
+
+    def filter_by_name(self, names: tuple[str, ...]) -> "ToolRegistry":
+        filtered = ToolRegistry()
+        for name in names:
+            if name in self._tools:
+                filtered.register(self._tools[name])
+        return filtered
 
 
 def _schema(properties: dict[str, Any], required: list[str]) -> dict[str, Any]:
@@ -423,6 +449,7 @@ def default_tool_registry(
     default_bash_timeout_seconds: int = DEFAULT_BASH_TIMEOUT_SECONDS,
     max_bash_timeout_seconds: int = DEFAULT_MAX_BASH_TIMEOUT_SECONDS,
     sandbox_runner: str | None = None,
+    tool_profile: str | None = None,
 ) -> ToolRegistry:
     limits = ToolRuntimeLimits(
         max_output_chars=max_output_chars,
@@ -624,4 +651,8 @@ def default_tool_registry(
             sandbox_required=True,
         )
     )
-    return registry
+    if tool_profile is None:
+        return registry
+    if tool_profile not in TOOL_PROFILES:
+        raise ValueError(f"unknown tool profile: {tool_profile}")
+    return registry.filter_by_name(TOOL_PROFILES[tool_profile])

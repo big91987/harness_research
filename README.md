@@ -29,7 +29,7 @@ Implemented modules:
 - `harness.sandbox_runner`: stdin/stdout JSON runner entry point for high-risk local execution tools.
 - `harness.permissions`: read-only, workspace-write, danger, and prompt policy modes.
 - `harness.workspace`: workspace path containment.
-- Tool sandboxing: filesystem/search tools are guarded by workspace-scoped parameters; high-risk execution tools such as `bash` require a configured sandbox runner and fail closed when it is missing.
+- Tool profiles and sandboxing: `safe` exposes read-only inspection tools, `coding` exposes the local coding tool surface; filesystem/search tools are guarded by workspace-scoped parameters, while high-risk execution tools such as `bash` require a configured sandbox runner and fail closed when it is missing.
 - `harness.session`: JSONL session persistence.
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
@@ -164,6 +164,7 @@ Config-driven run:
   "task_dir": "/tmp/harness-tasks",
   "hook_config": "/tmp/harness-hooks.json",
   "permission": "workspace-write",
+  "tool_profile": "coding",
   "model_timeout_seconds": 120,
   "temperature": 0.2,
   "top_p": 0.9,
@@ -447,11 +448,16 @@ PYTHONPATH=src python3 -m harness.cli doctor
 PYTHONPATH=src python3 -m harness.cli run "edit file" --permission prompt
 ```
 
-Restrict tools with allow/deny lists:
+Restrict tools with named profiles and allow/deny lists:
 
 ```bash
 PYTHONPATH=src python3 -m harness.cli tools --show read_file
 PYTHONPATH=src python3 -m harness.cli tools --json
+PYTHONPATH=src python3 -m harness.cli tools --tool-profile safe --json
+
+PYTHONPATH=src python3 -m harness.cli run "inspect only" \
+  --tool-profile safe \
+  --permission read-only
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
@@ -541,6 +547,7 @@ Configure resource limits in `harness.json`:
   "max_file_read_bytes": 1000000,
   "default_bash_timeout_seconds": 30,
   "max_bash_timeout_seconds": 120,
+  "tool_profile": "coding",
   "sandbox_runner": "python3 -m harness.sandbox_runner",
   "model_timeout_seconds": 120,
   "max_model_retries": 1,
@@ -554,9 +561,11 @@ These limits protect the active context from large files, binary files, long-run
 commands, slow model providers, and transient model failures.
 `HARNESS_MODEL_TIMEOUT_SECONDS`, `HARNESS_MAX_MODEL_RETRIES`,
 `HARNESS_TEMPERATURE`, `HARNESS_TOP_P`, `HARNESS_MAX_TOKENS`, and
-`HARNESS_SANDBOX_RUNNER` override the JSON values. High-risk execution tools
-such as `bash` fail closed when no sandbox runner is configured; file tools
-still rely on workspace path guarding and resource limits.
+`HARNESS_TOOL_PROFILE` and `HARNESS_SANDBOX_RUNNER` override the JSON values.
+`safe` limits the model to `list_files`, `read_file`, `diff_file`, and `grep`;
+`coding` exposes the full local coding set. High-risk execution tools such as
+`bash` fail closed when no sandbox runner is configured; file tools still rely
+on workspace path guarding and resource limits.
 
 Configure cost tracking in `harness.json` or environment variables:
 

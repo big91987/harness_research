@@ -19,6 +19,7 @@ def test_scaffold_project_writes_config_and_samples(tmp_path: Path) -> None:
     assert config["task_dir"].endswith("tasks")
     assert config["hook_config"].endswith("hooks.json")
     assert config["model_timeout_seconds"] == 120
+    assert config["tool_profile"] == "coding"
     assert config["sandbox_runner"] == "python3 -m harness.sandbox_runner"
     assert (tmp_path / "hooks.json").exists()
     responses = json.loads(result.mock_responses_path.read_text(encoding="utf-8"))

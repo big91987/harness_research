@@ -716,3 +716,28 @@ def test_tool_registry_describes_tools() -> None:
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]
+
+
+def test_tool_registry_can_apply_safe_profile() -> None:
+    registry = default_tool_registry(tool_profile="safe")
+
+    assert registry.names() == ["diff_file", "grep", "list_files", "read_file"]
+    assert "bash" not in registry.names()
+    assert "write_file" not in registry.names()
+
+
+def test_tool_registry_can_apply_coding_profile() -> None:
+    registry = default_tool_registry(tool_profile="coding")
+
+    assert "bash" in registry.names()
+    assert "write_file" in registry.names()
+    assert "grep" in registry.names()
+
+
+def test_tool_registry_rejects_unknown_profile() -> None:
+    try:
+        default_tool_registry(tool_profile="unknown")
+    except ValueError as exc:
+        assert "unknown tool profile" in str(exc)
+    else:
+        raise AssertionError("expected unknown profile to fail")

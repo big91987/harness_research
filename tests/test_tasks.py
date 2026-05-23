@@ -39,3 +39,15 @@ def test_task_store_renders_task_context(tmp_path: Path) -> None:
     assert "make local harness usable" in context
     assert "in_progress" in context
     assert "s1" in context
+
+
+def test_task_store_merges_metadata_on_update(tmp_path: Path) -> None:
+    store = TaskStore(tmp_path)
+    task = store.create("ship harness", metadata={"owner": "agent"})
+
+    updated = store.update(task.id, metadata={"last_stop_reason": "final_answer"})
+
+    assert updated.metadata == {
+        "owner": "agent",
+        "last_stop_reason": "final_answer",
+    }

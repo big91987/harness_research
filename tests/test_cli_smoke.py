@@ -5,6 +5,12 @@ import json
 from pathlib import Path
 
 
+def _write_mock_response(tmp_path: Path, responses: list[dict]) -> Path:
+    path = tmp_path / "responses.json"
+    path.write_text(json.dumps(responses), encoding="utf-8")
+    return path
+
+
 def test_cli_run_with_mock_final_answer(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     trace = tmp_path / "trace.jsonl"
@@ -347,7 +353,74 @@ def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
         env=env,
     )
     assert "ship harness" in show.stdout
+    assert "status: done" in show.stdout
     assert f"session: {session_id}" in show.stdout
+
+
+def test_cli_run_marks_task_blocked_on_failed_turn(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    task_dir = tmp_path / "tasks"
+    created = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--add",
+            "blocked task",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    task_id = [line for line in created.stdout.splitlines() if line.startswith("task:")][0].split(":", 1)[1].strip()
+
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "over budget",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--task-dir",
+            str(task_dir),
+            "--task-id",
+            task_id,
+            "--max-total-tokens",
+            "0",
+            "--mock-responses",
+            str(_write_mock_response(tmp_path, [{"content": "too much", "usage": {"total_tokens": 1}}])),
+        ],
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert run.returncode == 2
+
+    show = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--show",
+            task_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "status: blocked" in show.stdout
 
 
 def test_cli_handoff_renders_session_summary(tmp_path: Path) -> None:

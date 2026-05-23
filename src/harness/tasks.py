@@ -87,6 +87,7 @@ class TaskStore:
         description: str | None = None,
         status: TaskStatus | str | None = None,
         session_id: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> Task:
         tasks = self._read()
         if task_id not in tasks:
@@ -100,6 +101,8 @@ class TaskStore:
             task.status = _status_value(status)
         if session_id is not None:
             task.session_id = session_id
+        if metadata is not None:
+            task.metadata.update(metadata)
         task.updated_at = time()
         tasks[task_id] = task
         self._write(tasks)

@@ -55,6 +55,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--allow-tool", action="append", dest="allowed_tools", default=None)
     run.add_argument("--deny-tool", action="append", dest="denied_tools", default=None)
     run.add_argument("--max-iterations", type=int)
+    run.add_argument("--max-total-tokens", type=int)
+    run.add_argument("--max-cost-usd", type=float)
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
 
@@ -307,14 +309,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "run":
         config = _merged_config(args)
         kernel, session = build_kernel(args)
+        task_store = TaskStore(config.task_dir) if args.task_id else None
         if args.task_id:
             session.metadata["task_id"] = args.task_id
-            TaskStore(config.task_dir).update(
+            task_store.update(
                 args.task_id,
                 status=TaskStatus.IN_PROGRESS,
                 session_id=session.id,
             )
         result = kernel.run_turn(session, args.prompt)
+        if args.task_id and task_store is not None:
+            final_status = TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED
+            task_store.update(
+                args.task_id,
+                status=final_status,
+                session_id=result.session_id,
+                metadata={
+                    "last_stop_reason": result.stop_reason,
+                    "last_iterations": str(result.iterations),
+                },
+            )
         print(result.final_text)
         print(f"\nsession: {result.session_id}")
         print(f"stop_reason: {result.stop_reason}")

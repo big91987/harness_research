@@ -49,6 +49,7 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
             "max_file_read_bytes": 1000000,
             "default_bash_timeout_seconds": 30,
             "max_bash_timeout_seconds": 120,
+            "sandbox_runner": "python3 -m harness.sandbox_runner",
             "model": "gpt-4.1-mini",
             "model_timeout_seconds": 120,
             "max_iterations": 20,

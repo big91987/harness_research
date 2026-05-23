@@ -391,7 +391,6 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
         completed = subprocess.run(
             shlex.split(runner),
             input=json.dumps(request, ensure_ascii=False),
-            cwd=workspace.root,
             text=True,
             capture_output=True,
             timeout=timeout,

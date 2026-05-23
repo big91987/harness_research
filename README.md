@@ -26,6 +26,7 @@ Implemented modules:
 - `harness.kernel`: turn loop, model call, tool dispatch, session persistence, trace events.
 - `harness.model`: fake model for tests and OpenAI-compatible chat completions client.
 - `harness.tools`: built-in `list_files`, `read_file`, `write_file`, `append_file`, `diff_file`, `edit_file`, `move_path`, `make_directory`, `copy_path`, `delete_path`, `grep`, `bash`.
+- `harness.sandbox_runner`: stdin/stdout JSON runner entry point for high-risk local execution tools.
 - `harness.permissions`: read-only, workspace-write, danger, and prompt policy modes.
 - `harness.workspace`: workspace path containment.
 - Tool sandboxing: filesystem/search tools are guarded by workspace-scoped parameters; high-risk execution tools such as `bash` require a configured sandbox runner and fail closed when it is missing.
@@ -518,7 +519,7 @@ PYTHONPATH=src python3 -m harness.cli tools \
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
   --permission danger \
-  --sandbox-runner "python3 /path/to/sandbox_runner.py" \
+  --sandbox-runner "python3 -m harness.sandbox_runner" \
   --call bash \
   --args-json '{"command":"printf \"$HARNESS_MODE\"","cwd":"pkg","env":{"HARNESS_MODE":"local"}}'
 
@@ -540,7 +541,7 @@ Configure resource limits in `harness.json`:
   "max_file_read_bytes": 1000000,
   "default_bash_timeout_seconds": 30,
   "max_bash_timeout_seconds": 120,
-  "sandbox_runner": "python3 /path/to/sandbox_runner.py",
+  "sandbox_runner": "python3 -m harness.sandbox_runner",
   "model_timeout_seconds": 120,
   "max_model_retries": 1,
   "temperature": 0.2,

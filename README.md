@@ -375,6 +375,15 @@ PYTHONPATH=src python3 -m harness.cli run "continue work" \
   --task-dir /tmp/harness-tasks \
   --task-id <task-id> \
   --mock-final "checkpoint complete"
+
+PYTHONPATH=src python3 -m harness.cli tasks \
+  --task-dir /tmp/harness-tasks \
+  --session <session-id> \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli tasks \
+  --task-dir /tmp/harness-tasks \
+  --delete <task-id>
 ```
 
 `run --task-id` marks the task `in_progress`, records the session id on the task,

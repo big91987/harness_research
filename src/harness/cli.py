@@ -108,8 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     tasks.add_argument("--description", default="")
     tasks.add_argument("--update")
     tasks.add_argument("--show")
+    tasks.add_argument("--delete")
     tasks.add_argument("--status", choices=[status.value for status in TaskStatus])
     tasks.add_argument("--session")
+    tasks.add_argument("--json", action="store_true")
 
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
     trace.add_argument("--trace")
@@ -567,9 +569,21 @@ def main(argv: list[str] | None = None) -> int:
                 task = tasks.load(args.show)
             except KeyError as exc:
                 raise SystemExit(str(exc)) from exc
+            if args.json:
+                print(json.dumps(task.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
             _print_task(task)
             return 0
-        for task in tasks.list(status=args.status):
+        if args.delete:
+            if not tasks.delete(args.delete):
+                raise SystemExit(f"task not found: {args.delete}")
+            print(f"deleted: {args.delete}")
+            return 0
+        task_list = tasks.list(status=args.status, session_id=args.session)
+        if args.json:
+            print(json.dumps([task.to_dict() for task in task_list], ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        for task in task_list:
             print(f"{task.id} {task.status} {task.title}")
         return 0
     if args.command == "trace":

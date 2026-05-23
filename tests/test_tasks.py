@@ -27,6 +27,19 @@ def test_task_store_filters_by_status(tmp_path: Path) -> None:
     assert store.load(first.id).status == TaskStatus.TODO.value
 
 
+def test_task_store_filters_by_session_and_deletes(tmp_path: Path) -> None:
+    store = TaskStore(tmp_path)
+    first = store.create("one")
+    second = store.create("two")
+    store.update(first.id, session_id="s1")
+    store.update(second.id, session_id="s2")
+
+    assert [task.id for task in store.list(session_id="s1")] == [first.id]
+    assert store.delete(first.id)
+    assert store.list(session_id="s1") == []
+    assert not store.delete(first.id)
+
+
 def test_task_store_renders_task_context(tmp_path: Path) -> None:
     store = TaskStore(tmp_path)
     task = store.create("ship harness", description="make local harness usable")

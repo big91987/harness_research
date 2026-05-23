@@ -685,6 +685,44 @@ def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
     assert "status: done" in show.stdout
     assert f"session: {session_id}" in show.stdout
 
+    listed_json = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--session",
+            session_id,
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert f'"id": "{task_id}"' in listed_json.stdout
+    assert f'"session_id": "{session_id}"' in listed_json.stdout
+
+    deleted = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "tasks",
+            "--task-dir",
+            str(task_dir),
+            "--delete",
+            task_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert f"deleted: {task_id}" in deleted.stdout
+
 
 def test_cli_run_marks_task_blocked_on_failed_turn(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}

@@ -72,12 +72,22 @@ class TaskStore:
         except KeyError as exc:
             raise KeyError(f"task not found: {task_id}") from exc
 
-    def list(self, *, status: TaskStatus | str | None = None) -> list[Task]:
+    def list(self, *, status: TaskStatus | str | None = None, session_id: str | None = None) -> list[Task]:
         tasks = sorted(self._read().values(), key=lambda task: (task.created_at, task.id))
-        if status is None:
-            return tasks
-        status_value = _status_value(status)
-        return [task for task in tasks if task.status == status_value]
+        if status is not None:
+            status_value = _status_value(status)
+            tasks = [task for task in tasks if task.status == status_value]
+        if session_id is not None:
+            tasks = [task for task in tasks if task.session_id == session_id]
+        return tasks
+
+    def delete(self, task_id: str) -> bool:
+        tasks = self._read()
+        if task_id not in tasks:
+            return False
+        del tasks[task_id]
+        self._write(tasks)
+        return True
 
     def update(
         self,

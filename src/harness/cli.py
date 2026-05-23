@@ -79,6 +79,9 @@ def build_parser() -> argparse.ArgumentParser:
     sessions.add_argument("--import", dest="import_session", help="Import a session JSON bundle.")
     sessions.add_argument("--compact", help="Compact and persist one session.")
     sessions.add_argument("--dry-run", action="store_true")
+    sessions.add_argument("--workspace-contains")
+    sessions.add_argument("--limit", type=int)
+    sessions.add_argument("--json", action="store_true")
     sessions.add_argument("--max-messages", type=int)
     sessions.add_argument("--keep-head", type=int)
     sessions.add_argument("--keep-tail", type=int)
@@ -493,8 +496,12 @@ def main(argv: list[str] | None = None) -> int:
             if last:
                 print(f"last_{last.role}: {last.content}")
         else:
-            for session_id in store.list():
-                print(session_id)
+            summaries = store.summaries(workspace_contains=args.workspace_contains, limit=args.limit)
+            if args.json:
+                print(json.dumps(summaries, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            for summary in summaries:
+                print(summary["id"])
         return 0
     if args.command == "memory":
         config = _merged_config(args)

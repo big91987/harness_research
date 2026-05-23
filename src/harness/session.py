@@ -81,6 +81,41 @@ class JsonlSessionStore:
     def list(self) -> list[str]:
         return sorted(path.stem for path in self.root.glob("*.jsonl"))
 
+    def summaries(
+        self,
+        *,
+        workspace_contains: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict]:
+        summaries: list[dict] = []
+        for session_id in self.list():
+            session = self.load(session_id)
+            if session is None:
+                continue
+            if workspace_contains and workspace_contains not in session.workspace:
+                continue
+            last = session.messages[-1] if session.messages else None
+            summaries.append(
+                {
+                    "id": session.id,
+                    "workspace": session.workspace,
+                    "created_at": session.created_at,
+                    "updated_at": session.updated_at,
+                    "messages": len(session.messages),
+                    "usage_prompt_tokens": int(session.usage.get("prompt_tokens", 0)),
+                    "usage_completion_tokens": int(session.usage.get("completion_tokens", 0)),
+                    "usage_total_tokens": int(session.usage.get("total_tokens", 0)),
+                    "cost_usd": session.cost_usd,
+                    "last_role": last.role if last else None,
+                    "last_content": last.content if last else "",
+                    "metadata": dict(session.metadata),
+                }
+            )
+        summaries.sort(key=lambda item: (item["updated_at"], item["id"]))
+        if limit is not None:
+            summaries = summaries[-limit:]
+        return summaries
+
 
 class SessionBundle:
     version = 1

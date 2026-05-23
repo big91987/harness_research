@@ -131,6 +131,11 @@ PYTHONPATH=src python3 -m harness.cli sessions \
 PYTHONPATH=src python3 -m harness.cli sessions \
   --session-dir /tmp/other-harness-sessions \
   --import /tmp/session-bundle.json
+
+PYTHONPATH=src python3 -m harness.cli sessions \
+  --session-dir /tmp/harness-sessions \
+  --workspace-contains harness-ws \
+  --json
 ```
 
 Compact a long session into a persistent summary plus recent messages:

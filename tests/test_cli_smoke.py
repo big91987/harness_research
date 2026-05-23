@@ -264,6 +264,26 @@ def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     assert "cost_usd:" in show.stdout
     assert "last_assistant: two" in show.stdout
 
+    listing = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(session_dir),
+            "--workspace-contains",
+            "ws",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert f'"id": "{session_id}"' in listing.stdout
+    assert '"messages": 4' in listing.stdout
+
 
 def test_cli_sessions_export_and_import(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}

@@ -122,6 +122,19 @@ PYTHONPATH=src python3 -m harness.cli run "say hi" \
   --mock-final "hi from harness"
 ```
 
+Use `--json` when another process, future server, or UI wrapper needs a stable
+result object with `session_id`, `stop_reason`, `iterations`, checkpoint fields,
+and final text:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli run "say hi" \
+  --workspace /tmp/harness-ws \
+  --session-dir /tmp/harness-sessions \
+  --trace /tmp/harness-trace.jsonl \
+  --mock-final "hi from harness" \
+  --json
+```
+
 Tool-loop fake model:
 
 ```bash

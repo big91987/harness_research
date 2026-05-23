@@ -69,6 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--checkpoint-dir", default=".harness/checkpoints")
     run.add_argument("--checkpoint-label", default="")
     run.add_argument("--restore-checkpoint-on-failure", action="store_true")
+    run.add_argument("--json", action="store_true")
     run.add_argument("--mock-final", help="Use a fake model response for local smoke tests.")
     run.add_argument("--mock-responses", help="Path to JSON scripted fake model responses.")
 
@@ -437,8 +438,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.checkpoint_before or args.restore_checkpoint_on_failure:
             label = args.checkpoint_label or f"before-run-{args.prompt[:40]}"
             checkpoint = WorkspaceCheckpoint.create(config.workspace, args.checkpoint_dir, label=label)
-            print(f"checkpoint: {checkpoint.id}")
-            print(f"checkpoint_manifest: {checkpoint.manifest_path}")
+            if not args.json:
+                print(f"checkpoint: {checkpoint.id}")
+                print(f"checkpoint_manifest: {checkpoint.manifest_path}")
         kernel, session = build_kernel(args)
         task_store = TaskStore(config.task_dir) if args.task_id else None
         if args.task_id:
@@ -460,16 +462,37 @@ def main(argv: list[str] | None = None) -> int:
                     "last_iterations": str(result.iterations),
                 },
             )
+        restored_checkpoint_id = None
         if (
             checkpoint is not None
             and args.restore_checkpoint_on_failure
             and result.stop_reason != "final_answer"
         ):
             WorkspaceCheckpoint.restore(checkpoint.manifest_path, config.workspace, clean=True)
-            print(f"restored_checkpoint: {checkpoint.id}")
-        print(result.final_text)
-        print(f"\nsession: {result.session_id}")
-        print(f"stop_reason: {result.stop_reason}")
+            restored_checkpoint_id = checkpoint.id
+            if not args.json:
+                print(f"restored_checkpoint: {checkpoint.id}")
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "final_text": result.final_text,
+                        "session_id": result.session_id,
+                        "iterations": result.iterations,
+                        "stop_reason": result.stop_reason,
+                        "checkpoint_id": checkpoint.id if checkpoint is not None else None,
+                        "checkpoint_manifest": str(checkpoint.manifest_path) if checkpoint is not None else None,
+                        "restored_checkpoint_id": restored_checkpoint_id,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+        else:
+            print(result.final_text)
+            print(f"\nsession: {result.session_id}")
+            print(f"stop_reason: {result.stop_reason}")
         return 0 if result.stop_reason == "final_answer" else 2
     if args.command == "tools":
         config = _merged_config(args)

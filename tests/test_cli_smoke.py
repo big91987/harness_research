@@ -41,6 +41,37 @@ def test_cli_run_with_mock_final_answer(tmp_path: Path) -> None:
     assert '"turn_end"' in trace.read_text()
 
 
+def test_cli_run_can_emit_json_result(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "say hi",
+            "--workspace",
+            str(tmp_path / "workspace"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--mock-final",
+            "hi from harness",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["final_text"] == "hi from harness"
+    assert payload["stop_reason"] == "final_answer"
+    assert payload["iterations"] == 1
+    assert payload["session_id"]
+
+
 def test_cli_run_with_mock_tool_script(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     script = tmp_path / "responses.json"
@@ -151,6 +182,64 @@ def test_cli_run_can_restore_checkpoint_on_failure(tmp_path: Path) -> None:
     assert "stop_reason: max_iterations" in result.stdout
     assert (workspace / "keep.txt").read_text(encoding="utf-8") == "before"
     assert not (workspace / "extra.txt").exists()
+
+
+def test_cli_run_json_result_includes_checkpoint_restore(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "keep.txt").write_text("before", encoding="utf-8")
+    script = _write_mock_response(
+        tmp_path,
+        [
+            {
+                "content": "writing risky change",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "name": "write_file",
+                        "arguments": {"path": "keep.txt", "content": "after"},
+                    }
+                ],
+            }
+        ],
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "risky edit",
+            "--workspace",
+            str(workspace),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--permission",
+            "workspace-write",
+            "--max-iterations",
+            "1",
+            "--checkpoint-before",
+            "--checkpoint-dir",
+            str(tmp_path / "checkpoints"),
+            "--restore-checkpoint-on-failure",
+            "--mock-responses",
+            str(script),
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert result.returncode == 2
+    payload = json.loads(result.stdout)
+    assert payload["stop_reason"] == "max_iterations"
+    assert payload["checkpoint_id"]
+    assert payload["restored_checkpoint_id"] == payload["checkpoint_id"]
+    assert (workspace / "keep.txt").read_text(encoding="utf-8") == "before"
 
 
 def test_cli_run_keeps_changes_after_successful_checkpointed_run(tmp_path: Path) -> None:

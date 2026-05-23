@@ -159,6 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     artifacts.add_argument("--limit", type=int)
     artifacts.add_argument("--json", action="store_true")
     artifacts.add_argument("--verify", help="Artifact id to verify.")
+    artifacts.add_argument("--verify-all", action="store_true")
 
     audit = subparsers.add_parser("audit", help="Print audit JSONL events.")
     audit.add_argument("--audit")
@@ -690,6 +691,14 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.verify:
             print(f"verified: {store.verify(args.verify)}")
+            return 0
+        if args.verify_all:
+            report = store.verify_all()
+            if args.json:
+                print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            for item in report:
+                print(f"{item['id']} {item['status']} {item['relative_path']}")
             return 0
         artifacts = ArtifactQuery(store).artifacts(
             kind=args.kind if args.kind != "file" or args.path_contains or args.limit or args.json else None,

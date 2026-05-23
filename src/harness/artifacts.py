@@ -69,6 +69,34 @@ class ArtifactStore:
         path = Path(artifact.path)
         return path.exists() and path.stat().st_size == artifact.size and _sha256(path) == artifact.sha256
 
+    def verify_all(self) -> list[dict]:
+        results: list[dict] = []
+        for artifact in self.list():
+            path = Path(artifact.path)
+            exists = path.exists()
+            current_size = path.stat().st_size if exists else None
+            current_sha256 = _sha256(path) if exists else None
+            if not exists:
+                status = "missing"
+            elif current_size == artifact.size and current_sha256 == artifact.sha256:
+                status = "ok"
+            else:
+                status = "changed"
+            results.append(
+                {
+                    "id": artifact.id,
+                    "path": artifact.path,
+                    "relative_path": artifact.relative_path,
+                    "kind": artifact.kind,
+                    "status": status,
+                    "expected_size": artifact.size,
+                    "current_size": current_size,
+                    "expected_sha256": artifact.sha256,
+                    "current_sha256": current_sha256,
+                }
+            )
+        return results
+
 
 class ArtifactQuery:
     def __init__(self, store: ArtifactStore) -> None:

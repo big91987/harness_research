@@ -75,6 +75,40 @@ def test_append_file_requires_workspace_write_permission(tmp_path: Path) -> None
     assert not (tmp_path / "notes.txt").exists()
 
 
+def test_diff_file_previews_replacement_without_modifying_file(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "notes.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
+
+    result = tools.get("diff_file").run(
+        {"path": "notes.txt", "old": "two", "new": "TWO"},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert not result.is_error
+    assert "--- notes.txt" in result.output
+    assert "+++ notes.txt" in result.output
+    assert "-two" in result.output
+    assert "+TWO" in result.output
+    assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "one\ntwo\nthree\n"
+
+
+def test_diff_file_reports_missing_old_text(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "notes.txt").write_text("one\n", encoding="utf-8")
+
+    result = tools.get("diff_file").run(
+        {"path": "notes.txt", "old": "absent", "new": "value"},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert result.is_error
+    assert "old text not found" in result.output
+
+
 def test_bash_requires_danger_permission(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()
@@ -337,6 +371,7 @@ def test_tool_registry_describes_tools() -> None:
 
     read_description = registry.describe("read_file")
     append_description = registry.describe("append_file")
+    diff_description = registry.describe("diff_file")
     delete_description = registry.describe("delete_path")
 
     assert read_description["name"] == "read_file"
@@ -345,6 +380,9 @@ def test_tool_registry_describes_tools() -> None:
     assert append_description["name"] == "append_file"
     assert append_description["required_permission"] == "workspace-write"
     assert append_description["parameters"]["required"] == ["path", "content"]
+    assert diff_description["name"] == "diff_file"
+    assert diff_description["required_permission"] == "read-only"
+    assert diff_description["parameters"]["required"] == ["path", "old", "new"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]

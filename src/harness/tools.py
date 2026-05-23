@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import fnmatch
 import os
 import shutil
@@ -203,6 +204,24 @@ def _append_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     return ToolResult(f"appended {path.relative_to(workspace.root)}")
 
 
+def _diff_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    path = workspace.resolve(args["path"])
+    old = str(args["old"])
+    new = str(args["new"])
+    text = path.read_text(encoding="utf-8")
+    if old not in text:
+        return ToolResult("old text not found", is_error=True)
+    updated = text.replace(old, new, 1)
+    rel = path.relative_to(workspace.root).as_posix()
+    diff = difflib.unified_diff(
+        text.splitlines(keepends=True),
+        updated.splitlines(keepends=True),
+        fromfile=rel,
+        tofile=rel,
+    )
+    return ToolResult("".join(diff))
+
+
 def _edit_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     old = str(args["old"])
@@ -376,6 +395,22 @@ def default_tool_registry(
             ),
             _append_file,
             PermissionMode.WORKSPACE_WRITE,
+            max_output_chars=limits.max_output_chars,
+        )
+    )
+    registry.register(
+        Tool(
+            "diff_file",
+            "Preview a single text replacement in a workspace file as a unified diff.",
+            _schema(
+                {
+                    "path": {"type": "string"},
+                    "old": {"type": "string"},
+                    "new": {"type": "string"},
+                },
+                ["path", "old", "new"],
+            ),
+            _diff_file,
             max_output_chars=limits.max_output_chars,
         )
     )

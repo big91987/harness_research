@@ -20,6 +20,7 @@ from harness.schema import ToolCall
 from harness.session import JsonlSessionStore, Session
 from harness.tools import default_tool_registry
 from harness.trace import TraceRecorder
+from harness.verify import VerifyOptions, run_verify
 from harness.workspace import Workspace
 
 
@@ -92,6 +93,13 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--workspace")
     doctor.add_argument("--session-dir")
     doctor.add_argument("--memory-dir")
+
+    verify = subparsers.add_parser("verify", help="Run local verification gates.")
+    verify.add_argument("--work-dir", default=".harness/verify")
+    verify.add_argument("--skip-tests", action="store_true")
+    verify.add_argument("--skip-compile", action="store_true")
+    verify.add_argument("--skip-mock-smoke", action="store_true")
+    verify.add_argument("--live-smoke", action="store_true")
 
     return parser
 
@@ -328,6 +336,26 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{name}: {status} - {check.message}")
         print(f"overall: {report.ok}")
         return 0
+    if args.command == "verify":
+        config = _merged_config(args)
+        report = run_verify(
+            VerifyOptions(
+                root=Path.cwd(),
+                work_dir=Path(args.work_dir),
+                run_tests=not args.skip_tests,
+                run_compile=not args.skip_compile,
+                run_mock_smoke=not args.skip_mock_smoke,
+                run_live_smoke=args.live_smoke,
+                config=config,
+            )
+        )
+        for name, result in report.results.items():
+            status = "passed" if result.passed else "failed"
+            print(f"{name}: {status}")
+            if not result.passed and result.output:
+                print(result.output)
+        print(f"overall: {report.passed}")
+        return 0 if report.passed else 1
     parser.error(f"unknown command {args.command}")
     return 2
 

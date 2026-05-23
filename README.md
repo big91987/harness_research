@@ -42,6 +42,27 @@ Implemented modules:
 python3 -m pytest
 ```
 
+Run all local verification gates:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli verify
+```
+
+This runs:
+
+- unit tests
+- `compileall`
+- a mock end-to-end tool loop smoke test
+
+Live model smoke tests are opt-in only:
+
+```bash
+HARNESS_BASE_URL="https://api.example.com" \
+HARNESS_API_KEY="..." \
+HARNESS_MODEL="model-name" \
+PYTHONPATH=src python3 -m harness.cli verify --live-smoke
+```
+
 ## Local Smoke Test
 
 Final-answer-only fake model:

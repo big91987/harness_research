@@ -16,5 +16,6 @@ __all__ = [
     "session",
     "tools",
     "trace",
+    "verify",
     "workspace",
 ]

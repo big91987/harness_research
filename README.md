@@ -63,6 +63,30 @@ HARNESS_MODEL="model-name" \
 PYTHONPATH=src python3 -m harness.cli verify --live-smoke
 ```
 
+## Bootstrap A Local Harness
+
+Create a runnable local harness directory with config, sample model responses,
+and a golden suite:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli init --root /tmp/my-harness
+```
+
+Run the generated mock scenario:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json run \
+  "create sample" \
+  --mock-responses /tmp/my-harness/samples/mock_responses.json
+```
+
+Validate the generated trace:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli golden /tmp/my-harness/samples/golden.json
+PYTHONPATH=src python3 -m harness.cli --config /tmp/my-harness/harness.json doctor
+```
+
 ## Local Smoke Test
 
 Final-answer-only fake model:

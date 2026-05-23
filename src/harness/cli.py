@@ -15,6 +15,7 @@ from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.permissions import PermissionMode, Policy
+from harness.scaffold import scaffold_project
 from harness.schema import ModelResponse
 from harness.schema import ToolCall
 from harness.session import JsonlSessionStore, Session
@@ -100,6 +101,10 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--skip-compile", action="store_true")
     verify.add_argument("--skip-mock-smoke", action="store_true")
     verify.add_argument("--live-smoke", action="store_true")
+
+    init = subparsers.add_parser("init", help="Create a local harness config and sample fixtures.")
+    init.add_argument("--root", default=".harness-local")
+    init.add_argument("--overwrite", action="store_true")
 
     return parser
 
@@ -356,6 +361,13 @@ def main(argv: list[str] | None = None) -> int:
                 print(result.output)
         print(f"overall: {report.passed}")
         return 0 if report.passed else 1
+    if args.command == "init":
+        result = scaffold_project(args.root, overwrite=args.overwrite)
+        print(f"root: {result.root}")
+        print(f"config: {result.config_path}")
+        print(f"mock_responses: {result.mock_responses_path}")
+        print(f"golden: {result.golden_path}")
+        return 0
     parser.error(f"unknown command {args.command}")
     return 2
 

@@ -13,6 +13,7 @@ __all__ = [
     "model",
     "permissions",
     "schema",
+    "scaffold",
     "session",
     "tools",
     "trace",

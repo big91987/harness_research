@@ -43,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sessions = subparsers.add_parser("sessions", help="List local sessions.")
     sessions.add_argument("--session-dir")
+    sessions.add_argument("--show", help="Show one session summary.")
 
     memory = subparsers.add_parser("memory", help="Add or search local markdown memory.")
     memory.add_argument("--memory-dir")
@@ -165,8 +166,20 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "sessions":
         config = _merged_config(args)
-        for session_id in JsonlSessionStore(config.session_dir).list():
-            print(session_id)
+        store = JsonlSessionStore(config.session_dir)
+        if args.show:
+            session = store.load(args.show)
+            if session is None:
+                raise SystemExit(f"session not found: {args.show}")
+            print(f"session: {session.id}")
+            print(f"workspace: {session.workspace}")
+            print(f"messages: {len(session.messages)}")
+            last = session.messages[-1] if session.messages else None
+            if last:
+                print(f"last_{last.role}: {last.content}")
+        else:
+            for session_id in store.list():
+                print(session_id)
         return 0
     if args.command == "memory":
         config = _merged_config(args)

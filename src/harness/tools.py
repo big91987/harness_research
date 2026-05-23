@@ -150,9 +150,16 @@ def _read_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     if not path.is_file():
         return ToolResult(f"not a file: {args['path']}", is_error=True)
+    start_line = int(args["start_line"]) if "start_line" in args else 1
+    max_lines = args.get("max_lines")
+    if start_line < 1:
+        return ToolResult("start_line must be >= 1", is_error=True)
+    if max_lines is not None and int(max_lines) < 1:
+        return ToolResult("max_lines must be >= 1", is_error=True)
     max_bytes = int(args.get("_max_file_read_bytes") or DEFAULT_MAX_FILE_READ_BYTES)
     size = path.stat().st_size
-    if max_bytes > 0 and size > max_bytes:
+    range_read = "start_line" in args or "max_lines" in args
+    if max_bytes > 0 and size > max_bytes and not range_read:
         return ToolResult(
             f"file {args['path']} is {size} bytes and exceeds max_file_read_bytes={max_bytes}",
             is_error=True,
@@ -160,7 +167,22 @@ def _read_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     sample = path.read_bytes()
     if b"\x00" in sample[:8192]:
         return ToolResult(f"refusing to read binary file: {args['path']}", is_error=True)
+    if range_read:
+        max_line_count = int(max_lines) if max_lines is not None else None
+        return ToolResult(_read_line_range(path, start_line, max_line_count))
     return ToolResult(path.read_text(encoding="utf-8"))
+
+
+def _read_line_range(path: Path, start_line: int, max_lines: int | None) -> str:
+    selected: list[str] = []
+    with path.open(encoding="utf-8") as handle:
+        for lineno, line in enumerate(handle, start=1):
+            if lineno < start_line:
+                continue
+            selected.append(line)
+            if max_lines is not None and len(selected) >= max_lines:
+                break
+    return "".join(selected)
 
 
 def _write_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
@@ -305,7 +327,14 @@ def default_tool_registry(
         Tool(
             "read_file",
             "Read a UTF-8 file from the workspace.",
-            _schema({"path": {"type": "string"}}, ["path"]),
+            _schema(
+                {
+                    "path": {"type": "string"},
+                    "start_line": {"type": "integer"},
+                    "max_lines": {"type": "integer"},
+                },
+                ["path"],
+            ),
             read_handler,
             max_output_chars=limits.max_output_chars,
         )

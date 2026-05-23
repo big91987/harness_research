@@ -450,6 +450,11 @@ PYTHONPATH=src python3 -m harness.cli tools --json
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \
+  --call read_file \
+  --args-json '{"path":"large.log","start_line":100,"max_lines":40}'
+
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
   --permission workspace-write \
   --call write_file \
   --args-json '{"path":"out.txt","content":"ok"}' \

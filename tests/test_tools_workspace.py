@@ -123,6 +123,43 @@ def test_read_file_rejects_files_over_size_limit(tmp_path: Path) -> None:
     assert "exceeds max_file_read_bytes" in result.output
 
 
+def test_read_file_can_read_line_ranges_from_large_files(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry(max_file_read_bytes=8)
+    (tmp_path / "large.txt").write_text("one\ntwo\nthree\nfour\n", encoding="utf-8")
+
+    result = tools.get("read_file").run(
+        {"path": "large.txt", "start_line": 2, "max_lines": 2},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert not result.is_error
+    assert result.output == "two\nthree\n"
+
+
+def test_read_file_rejects_invalid_line_ranges(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+    (tmp_path / "a.txt").write_text("one\n", encoding="utf-8")
+
+    start_result = tools.get("read_file").run(
+        {"path": "a.txt", "start_line": 0},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+    max_result = tools.get("read_file").run(
+        {"path": "a.txt", "max_lines": 0},
+        workspace,
+        Policy(PermissionMode.READ_ONLY),
+    )
+
+    assert start_result.is_error
+    assert "start_line must be >= 1" in start_result.output
+    assert max_result.is_error
+    assert "max_lines must be >= 1" in max_result.output
+
+
 def test_read_file_rejects_binary_files(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path)
     tools = default_tool_registry()

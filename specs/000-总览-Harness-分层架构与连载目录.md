@@ -39,7 +39,9 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | P0 | Execution & Security: Workspace / Filesystem / Shell Runner / Sandbox Policy | Agent 必须能行动，但行动必须有边界。文件、shell、sandbox 是 coding/research agent 的基本身体。 | 文件操作有 path guard；shell/code/browser 这类高风险工具必须进 sandbox，失败 fail closed |
 | P0 | Harness Runtime: Model Gateway / Router | Agent 本质还是模型。模型调用、重试、usage、错误处理不稳，整个 harness 都不稳。 | 支持 OpenAI-compatible；能解析 tool call；有 timeout/retry/usage/cost |
 | P1 | Agent Control Plane: Tool / MCP Registry | MCP 和工具注册表是 harness 的能力入口。没有统一注册、描述、权限和 profile，工具越多越不可控。 | 工具有 schema/metadata/profile；MCP adapter 有清晰边界；高风险工具自动进入 sandbox 策略 |
-| P1 | Agent Control Plane: Skill / Plugin Registry | Skill 是经验、流程和工具使用方式的可复用单元，比普通 memory 更接近“能力包”。它会直接影响 Agent 能不能少走弯路。 | skill 可注册、检索、按任务注入；skill 不继承旧任务权限；后续能演进到 plugin 生命周期 |
+| P1 | Harness Runtime: Tool / MCP Client Loading | Registry 只是资产目录，真正进入一轮任务的是 runtime loading：按当前任务选择工具、同步 MCP 能力、套用 policy/sandbox，再交给模型使用。 | 每个 turn 能按 profile 暴露工具；MCP tool schema 可同步；调用前校验权限和 sandbox 标签 |
+| P1 | Agent Control Plane: Skill / Plugin Registry | Skill 是经验、流程和工具使用方式的可复用单元，比普通 memory 更接近“能力包”。注册层负责来源、索引、去重、版本和适用条件。 | skill 可注册、检索、去重、版本化；skill 不继承旧任务权限；后续能演进到 plugin 生命周期 |
+| P1 | Harness Runtime: Skill Runtime / Context Injection | Skill 的价值发生在运行时：根据任务检索、按预算裁剪、注入上下文，并和 memory、handoff、tool use 协同。 | 每个任务能选择相关 skill；注入过程受 context budget 控制；注入来源可追踪 |
 | P1 | Harness Runtime: Context Manager / Context Budget / Compact | 长程任务的关键。单轮能跑不难，跑久不断片才是 harness 价值。 | session history、resume、压缩、handoff、active task context |
 | P1 | Agent Control Plane: Policy & Permission / Human Approval | 工具越强，权限越重要。尤其企业场景，没有治理就不可能上线。 | 工具分级、permission mode、审批、拒绝审计、越权 fail closed |
 | P1 | Observability / Evaluation / Ops: Trace / Logs / Audit / Replay / Doctor | 没有可观测，就无法调试 Agent 为什么乱跑、卡住、花钱、越权。 | 每次 run 有 trace/audit；能 query；能 doctor；能 replay/debug |
@@ -51,7 +53,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | P3 | Knowledge & Business Data: KB / Vector / Graph / Connectors | 企业场景很重要，但属于增强能力，不是 harness 最小内核。 | 先有 document/search/retrieval，再接业务系统 |
 | P3 | Agent Control Plane: Workflow / State Machine | 显式 workflow 和通用状态机适合在 subagent、queue、policy、trace 都具备后再抽象，否则容易回到过度控制的 prompt-flow。 | 有任务拆分、状态转移、失败补偿、人工审批节点、协作 trace |
 
-一句话排序是：Runtime 第一，Execution / Sandbox 第二，Model Gateway 第三，Tool/MCP Registry 与 Skill Registry 第四，Context 第五，Policy / Governance 第六，Observability / Eval 第七，Subagent / Multi-agent 第八。
+一句话排序是：Runtime 第一，Execution / Sandbox 第二，Model Gateway 第三，Tool/MCP Registry 与 Runtime Loading 第四，Skill Registry 与 Skill Runtime 第五，Context 第六，Policy / Governance 第七，Observability / Eval 第八，Subagent / Multi-agent 第九。
 
 ### 当前实现状态表
 
@@ -65,8 +67,8 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 1. Experience & Gateway Layer | Device / Node Runtime | 未开始 | 预留给多节点、端侧或远端执行节点 |
 | 1. Experience & Gateway Layer | Human Approval | 部分实现 | CLI prompt approval 已有；UI 化、队列化审批未做 |
 | 2. Agent Control Plane | Agent Registry | 未开始 | 当前是单 Agent 本地运行，尚未做 Agent 注册中心 |
-| 2. Agent Control Plane | Tool / MCP Registry | 已实现 | 本地 tool registry、工具 profile、metadata CLI；MCP adapter 未做 |
-| 2. Agent Control Plane | Skill / Plugin Registry | 已实现 | 本地 skill registry、检索、注入；plugin 生命周期未做 |
+| 2. Agent Control Plane | Tool / MCP Registry | 已实现 | 本地 tool registry、工具 profile、metadata CLI；MCP adapter 未做。注册层负责声明，不负责每轮加载 |
+| 2. Agent Control Plane | Skill / Plugin Registry | 已实现 | 本地 skill registry、检索、索引；plugin 生命周期未做。注册层负责资产管理，不负责注入策略 |
 | 2. Agent Control Plane | Policy & Permission | 已实现 | permission mode、tool policy、approval、fail closed、audit context |
 | 2. Agent Control Plane | Config / Feature Flags | 已实现 | harness config、env override、config validation；feature flag 仍较轻 |
 | 2. Agent Control Plane | Session Routing | 部分实现 | session resume/import/export/compact 已有；跨 Agent/session router 未做 |
@@ -76,8 +78,10 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 3. Harness Runtime | Planner | 未开始 | 当前让模型自然规划，未实现显式 planner 模块 |
 | 3. Harness Runtime | Executor | 已实现 | tool dispatch、tool validation、execution result 回填 |
 | 3. Harness Runtime | Tool Orchestration | 部分实现 | 单轮多工具与 profile 已有；复杂工具 DAG / fan-out 未做 |
+| 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP client 生命周期、server 能力同步和 adapter 隔离未做 |
 | 3. Harness Runtime | Context Manager | 已实现 | session history、active task context、handoff、bundle、compaction |
 | 3. Harness Runtime | Context Budget / Compact | 已实现 | usage tracking、token/cost budget、session compact |
+| 3. Harness Runtime | Skill Runtime | 部分实现 | skill 可检索并注入上下文；按预算裁剪、运行时选择解释、和 memory/handoff 的闭环还要继续加强 |
 | 3. Harness Runtime | Memory Manager | 已实现 | Markdown memory、session extraction、memory locks |
 | 3. Harness Runtime | State Machine | 部分实现 | task/run state 已有；通用 state machine 未抽象 |
 | 3. Harness Runtime | Streaming Runtime | 未开始 | 当前未实现 token streaming / event streaming runtime |

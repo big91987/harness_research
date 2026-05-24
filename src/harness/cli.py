@@ -247,6 +247,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--memory-dir")
     doctor.add_argument("--skill-dir")
     doctor.add_argument("--task-dir")
+    doctor.add_argument("--run-dir")
     doctor.add_argument("--trace")
     doctor.add_argument("--audit")
     doctor.add_argument("--artifact-dir")
@@ -1177,6 +1178,7 @@ def main(argv: list[str] | None = None) -> int:
             memory_dir=config.memory_dir,
             skill_dir=config.skill_dir,
             task_dir=config.task_dir,
+            run_dir=config.run_dir,
             trace=config.trace,
             audit=config.audit,
             artifact_dir=config.artifact_dir,

@@ -132,6 +132,8 @@ def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:
             str(tmp_path / "skills"),
             "--task-dir",
             str(tmp_path / "tasks"),
+            "--run-dir",
+            str(tmp_path / "runs"),
             "--trace",
             str(tmp_path / "doctor-trace.jsonl"),
             "--audit",

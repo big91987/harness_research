@@ -78,6 +78,7 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
         memory_dir=tmp_path / "memory",
         skill_dir=tmp_path / "skills",
         task_dir=tmp_path / "tasks",
+        run_dir=tmp_path / "runs",
         trace=tmp_path / "trace.jsonl",
         audit=tmp_path / "audit.jsonl",
         artifact_dir=tmp_path / "artifacts",
@@ -91,6 +92,7 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
     assert report.checks["workspace"].ok
     assert report.checks["skill_dir"].ok
     assert report.checks["task_dir"].ok
+    assert report.checks["run_dir"].ok
     assert report.checks["model_config"].ok is False
     assert "api key" in report.checks["model_config"].message
     assert report.checks["sandbox_runner"].level == "warn"
@@ -113,6 +115,8 @@ def test_cli_doctor_probes_configured_sandbox_runner(tmp_path: Path) -> None:
             str(tmp_path / "skills"),
             "--task-dir",
             str(tmp_path / "tasks"),
+            "--run-dir",
+            str(tmp_path / "runs"),
             "--trace",
             str(tmp_path / "trace.jsonl"),
             "--audit",
@@ -185,6 +189,8 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
             str(tmp_path / "skills"),
             "--task-dir",
             str(tmp_path / "tasks"),
+            "--run-dir",
+            str(tmp_path / "runs"),
             "--trace",
             str(tmp_path / "doctor-trace.jsonl"),
             "--audit",
@@ -200,6 +206,7 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
     assert "workspace: ok" in doctor.stdout
     assert "skill_dir: ok" in doctor.stdout
     assert "task_dir: ok" in doctor.stdout
+    assert "run_dir: ok" in doctor.stdout
     assert "model_config: warn" in doctor.stdout
     assert "sandbox_runner: warn" in doctor.stdout
 
@@ -219,6 +226,8 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
             str(tmp_path / "skills"),
             "--task-dir",
             str(tmp_path / "tasks"),
+            "--run-dir",
+            str(tmp_path / "runs"),
             "--trace",
             str(tmp_path / "doctor-trace.jsonl"),
             "--audit",

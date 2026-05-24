@@ -117,7 +117,12 @@ class AgentKernel:
             for call in response.tool_calls:
                 try:
                     tool = self.tools.get(call.name)
-                    result = tool.run(call.arguments, self.workspace, self.policy)
+                    result = tool.run(
+                        call.arguments,
+                        self.workspace,
+                        self.policy,
+                        audit_context={"session_id": session.id, "turn_id": turn_id},
+                    )
                 except Exception as exc:  # noqa: BLE001 - tool lookup/runtime errors return to model.
                     result = ToolResult(str(exc), is_error=True)
                 trace.record(

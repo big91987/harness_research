@@ -55,3 +55,20 @@ def test_prompt_policy_records_approval_audit(tmp_path) -> None:
     assert event["type"] == "approval"
     assert event["action"] == "write_file"
     assert event["allowed"] is False
+
+
+def test_policy_audit_records_context(tmp_path) -> None:
+    audit = AuditLog(tmp_path / "audit.jsonl")
+    policy = Policy(PermissionMode.READ_ONLY, audit=audit)
+
+    decision = policy.check(
+        "write_file",
+        PermissionMode.WORKSPACE_WRITE,
+        audit_context={"session_id": "s1", "turn_id": "t1"},
+    )
+
+    assert not decision.allowed
+    event = audit.read_events()[0]
+    assert event["type"] == "policy_denial"
+    assert event["session_id"] == "s1"
+    assert event["turn_id"] == "t1"

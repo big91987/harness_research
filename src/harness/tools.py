@@ -72,8 +72,14 @@ class Tool:
     category: str = TOOL_CATEGORY_FILESYSTEM
     sandbox_required: bool = False
 
-    def run(self, arguments: dict[str, Any], workspace: Workspace, policy: Policy) -> ToolResult:
-        decision = policy.check(self.name, self.required_permission)
+    def run(
+        self,
+        arguments: dict[str, Any],
+        workspace: Workspace,
+        policy: Policy,
+        audit_context: dict[str, Any] | None = None,
+    ) -> ToolResult:
+        decision = policy.check(self.name, self.required_permission, audit_context=audit_context)
         if not decision.allowed:
             return ToolResult(decision.reason, is_error=True)
         validation_error = self._validate_arguments(arguments)

@@ -143,6 +143,43 @@ def test_kernel_handles_unknown_tool_as_recoverable_tool_error(tmp_path: Path) -
     assert "tool_error" in (tmp_path / "trace.jsonl").read_text()
 
 
+def test_kernel_policy_denial_audit_includes_turn_context(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "ws")
+    audit = AuditLog(tmp_path / "audit.jsonl")
+    model = FakeModelClient(
+        [
+            ModelResponse(
+                content="trying to write",
+                tool_calls=[
+                    ToolCall(
+                        id="call-1",
+                        name="write_file",
+                        arguments={"path": "denied.txt", "content": "no"},
+                    )
+                ],
+            ),
+            ModelResponse(content="write was denied"),
+        ]
+    )
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY, audit=audit),
+        audit=audit,
+    )
+
+    session = Session.new(workspace=str(workspace.root))
+    result = kernel.run_turn(session, "try write")
+
+    events = audit.read_events()
+    denial = next(event for event in events if event["type"] == "policy_denial")
+    assert denial["session_id"] == session.id
+    assert denial["turn_id"] == result.turn_id
+    assert denial["action"] == "write_file"
+
+
 def test_kernel_can_fail_fast_after_tool_error(tmp_path: Path) -> None:
     workspace = Workspace(tmp_path / "ws")
     trace = TraceRecorder(tmp_path / "trace.jsonl")

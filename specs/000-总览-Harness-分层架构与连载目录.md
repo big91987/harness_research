@@ -10,7 +10,7 @@
 
 这张图是本系列的母图。后续每一篇实现文章都要回到这张图，说明当前模块落在哪一层、解决哪条主干能力、哪些能力还只是预留。
 
-按这张图，我们不再把 Harness 简化成“CLI + Kernel + Tools”，而是分成六层：
+按这张图，Harness Engineering 可以从完整工程视角拆成六层：
 
 1. Experience & Gateway Layer：体验与网关层，解决人、IDE、Web、API、消息和设备节点如何接入。
 2. Agent Control Plane：控制平面，解决代理、工具、技能、策略、配置、Session、队列和 Workflow 如何被注册、路由和编排。

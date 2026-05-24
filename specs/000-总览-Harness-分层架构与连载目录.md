@@ -124,7 +124,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 2. Agent Control Plane | Scheduler / Queue | 已实现 | run ledger、queued run、worker、drain、diagnose、failure clean |
 | 2. Agent Control Plane | Workflow | 未开始 | 目前不是图式 workflow engine，只有 task ledger 和 run queue |
 | 3. Harness Runtime | Agent Loop / Query Engine | 已实现 | turn loop、model call、tool call、session save、fail-fast |
-| 3. Harness Runtime | Planner | 未开始 | 当前让模型自然规划，未实现显式 planner 模块 |
+| 3. Harness Runtime | Planner | 部分实现 | Lightweight planner、plan store、step status CLI 已有；模型规划、run queue 联动、subagent 分配未做 |
 | 3. Harness Runtime | Executor | 已实现 | tool dispatch、tool validation、execution result 回填 |
 | 3. Harness Runtime | Tool Orchestration | 部分实现 | 单轮多工具与 profile 已有；复杂工具 DAG / fan-out 未做 |
 | 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP stdio 生命周期、server 能力同步、namespaced runtime injection 已有；server 级 sandbox wrapper、resources/prompts、多 transport 未做 |

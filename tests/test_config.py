@@ -17,6 +17,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "skill_dir": "skills",
           "task_dir": "tasks",
           "run_dir": "runs",
+          "plan_dir": "plans",
           "hook_config": "hooks.json",
           "mcp_config": "mcp.json",
           "base_url": "https://config.example.com",
@@ -61,6 +62,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.skill_dir == "skills"
     assert config.task_dir == "tasks"
     assert config.run_dir == "runs"
+    assert config.plan_dir == "plans"
     assert config.hook_config == "hooks.json"
     assert config.mcp_config == "mcp.json"
     assert config.model == "env-model"
@@ -100,6 +102,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_SECRET_STORE", "env-secrets.json")
     monkeypatch.setenv("HARNESS_TASK_DIR", "env-tasks")
     monkeypatch.setenv("HARNESS_RUN_DIR", "env-runs")
+    monkeypatch.setenv("HARNESS_PLAN_DIR", "env-plans")
     monkeypatch.setenv("HARNESS_HOOK_CONFIG", "env-hooks.json")
     monkeypatch.setenv("HARNESS_MCP_CONFIG", "env-mcp.json")
     monkeypatch.setenv("HARNESS_MAX_MODEL_RETRIES", "3")
@@ -124,6 +127,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.secret_store == "env-secrets.json"
     assert config.task_dir == "env-tasks"
     assert config.run_dir == "env-runs"
+    assert config.plan_dir == "env-plans"
     assert config.hook_config == "env-hooks.json"
     assert config.mcp_config == "env-mcp.json"
     assert config.max_model_retries == 3

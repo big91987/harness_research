@@ -18,6 +18,7 @@ __all__ = [
     "model",
     "network_policy",
     "permissions",
+    "planner",
     "schema",
     "scaffold",
     "secrets",

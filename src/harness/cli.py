@@ -24,6 +24,7 @@ from harness.migrations import MigrationRunner
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.network_policy import NetworkPolicy
 from harness.permissions import PermissionMode, Policy
+from harness.planner import PlanStore, TaskPlanner
 from harness.runs import RunStatus, RunStore
 from harness.scaffold import scaffold_project
 from harness.schema import ModelResponse
@@ -198,6 +199,15 @@ def build_parser() -> argparse.ArgumentParser:
     tasks.add_argument("--status", choices=[status.value for status in TaskStatus])
     tasks.add_argument("--session")
     tasks.add_argument("--json", action="store_true")
+
+    plans = subparsers.add_parser("plans", help="Create, show, list, and update local task plans.")
+    plans.add_argument("--plan-dir")
+    plans.add_argument("--create")
+    plans.add_argument("--show")
+    plans.add_argument("--update")
+    plans.add_argument("--step", type=int)
+    plans.add_argument("--status", choices=["pending", "in_progress", "completed", "blocked"])
+    plans.add_argument("--json", action="store_true")
 
     runs = subparsers.add_parser("runs", help="List and show local harness run records.")
     runs.add_argument("--run-dir")
@@ -430,6 +440,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "skill_dir",
         "task_dir",
         "run_dir",
+        "plan_dir",
         "hook_config",
         "mcp_config",
         "base_url",
@@ -1208,6 +1219,43 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         for task in task_list:
             print(f"{task.id} {task.status} {task.title}")
+        return 0
+    if args.command == "plans":
+        config = _merged_config(args)
+        store = PlanStore(config.plan_dir)
+        if args.create:
+            plan = store.save(TaskPlanner().plan(args.create))
+            if args.json:
+                print(json.dumps(plan.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(f"plan: {plan.id}")
+            return 0
+        if args.update:
+            if args.step is None or not args.status:
+                raise SystemExit("--step and --status are required with --update")
+            plan = store.update_step(args.update, args.step, status=args.status)
+            if args.json:
+                print(json.dumps(plan.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(f"plan: {plan.id} status={plan.status}")
+            return 0
+        if args.show:
+            plan = store.load(args.show)
+            if plan is None:
+                raise SystemExit(f"plan not found: {args.show}")
+            if args.json:
+                print(json.dumps(plan.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(f"plan: {plan.id} {plan.status}")
+                for step in plan.steps:
+                    print(f"{step.index}. [{step.status}] {step.title}")
+            return 0
+        plans = store.list()
+        if args.json:
+            print(json.dumps([plan.to_dict() for plan in plans], ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            for plan in plans:
+                print(f"{plan.id} {plan.status} {plan.title}")
         return 0
     if args.command == "runs":
         config = _merged_config(args)

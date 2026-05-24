@@ -20,6 +20,15 @@ def atomic_write_text(path: str | Path, text: str, *, encoding: str = "utf-8") -
     return target
 
 
+def locked_append_text(path: str | Path, text: str, *, encoding: str = "utf-8") -> Path:
+    target = Path(path).expanduser().resolve()
+    with file_lock(_lock_path_for(target)):
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("a", encoding=encoding) as handle:
+            handle.write(text)
+    return target
+
+
 @contextlib.contextmanager
 def file_lock(path: str | Path) -> Iterator[Path]:
     lock_path = Path(path).expanduser().resolve()
@@ -30,3 +39,7 @@ def file_lock(path: str | Path) -> Iterator[Path]:
             yield lock_path
         finally:
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _lock_path_for(path: Path) -> Path:
+    return path.with_name(f"{path.name}.lock")

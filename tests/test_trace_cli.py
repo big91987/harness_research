@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import json
 from pathlib import Path
 
 from harness.trace import TraceQuery, TraceRecorder
@@ -32,6 +33,36 @@ def test_trace_recorder_summarizes_events(tmp_path: Path) -> None:
     assert summary["turns"] == 1
     assert summary["total_tokens"] == 15
     assert summary["cost_usd_micros"] == 123
+
+
+def test_trace_recorder_serializes_concurrent_events(tmp_path: Path) -> None:
+    trace = tmp_path / "trace.jsonl"
+    script = """
+from harness.trace import TraceRecorder
+import sys
+
+TraceRecorder(sys.argv[1]).record("worker_event", worker=sys.argv[2])
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(trace), str(index)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(12)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    lines = trace.read_text(encoding="utf-8").splitlines()
+    events = [json.loads(line) for line in lines]
+
+    assert len(events) == 12
+    assert {event["worker"] for event in events} == {str(index) for index in range(12)}
 
 
 def test_trace_query_filters_by_session_type_and_limit(tmp_path: Path) -> None:

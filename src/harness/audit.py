@@ -5,6 +5,8 @@ from pathlib import Path
 from time import time
 from typing import Any
 
+from harness.storage import file_lock, locked_append_text
+
 
 class AuditLog:
     def __init__(self, path: str | Path | None = None) -> None:
@@ -16,17 +18,17 @@ class AuditLog:
         if self.path is None:
             return
         event = {"ts": time(), "type": event_type, **data}
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+        locked_append_text(self.path, json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
 
     def read_events(self) -> list[dict[str, Any]]:
         if self.path is None or not self.path.exists():
             return []
         events: list[dict[str, Any]] = []
-        with self.path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    events.append(json.loads(line))
+        with file_lock(self.path.with_name(f"{self.path.name}.lock")):
+            with self.path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        events.append(json.loads(line))
         return events
 
 

@@ -74,6 +74,35 @@ def test_audit_log_records_jsonl_events(tmp_path: Path) -> None:
     assert events[1]["allowed"] is False
 
 
+def test_audit_log_serializes_concurrent_events(tmp_path: Path) -> None:
+    audit = tmp_path / "audit.jsonl"
+    script = """
+from harness.audit import AuditLog
+import sys
+
+AuditLog(sys.argv[1]).record("worker_event", action=sys.argv[2], allowed=True)
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(audit), str(index)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(12)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    events = AuditLog(audit).read_events()
+
+    assert len(events) == 12
+    assert {event["action"] for event in events} == {str(index) for index in range(12)}
+
+
 def test_audit_query_filters_events(tmp_path: Path) -> None:
     audit = AuditLog(tmp_path / "audit.jsonl")
     audit.record("tool_call", session_id="s1", turn_id="t1", actor="agent", action="read_file", allowed=True)

@@ -6,6 +6,7 @@ from time import time
 from typing import Any
 
 from harness.cost import canonical_usage
+from harness.storage import file_lock, locked_append_text
 
 
 class TraceRecorder:
@@ -18,17 +19,17 @@ class TraceRecorder:
         if not self.path:
             return
         event = {"ts": time(), "type": event_type, **data}
-        with self.path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+        locked_append_text(self.path, json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
 
     def read_events(self) -> list[dict[str, Any]]:
         if not self.path or not self.path.exists():
             return []
         events: list[dict[str, Any]] = []
-        with self.path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    events.append(json.loads(line))
+        with file_lock(self.path.with_name(f"{self.path.name}.lock")):
+            with self.path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        events.append(json.loads(line))
         return events
 
     def summary(self) -> dict[str, int]:

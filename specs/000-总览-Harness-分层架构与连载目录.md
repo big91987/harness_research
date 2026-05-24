@@ -116,7 +116,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 1. Experience & Gateway Layer | Device / Node Runtime | 未开始 | 预留给多节点、端侧或远端执行节点 |
 | 1. Experience & Gateway Layer | Human Approval | 部分实现 | CLI prompt approval 已有；UI 化、队列化审批未做 |
 | 2. Agent Control Plane | Agent Registry | 未开始 | 当前是单 Agent 本地运行，尚未做 Agent 注册中心 |
-| 2. Agent Control Plane | Tool / MCP Registry | 已实现 | 本地 tool registry、工具 profile、metadata CLI；MCP adapter 未做。注册层负责声明，不负责每轮加载 |
+| 2. Agent Control Plane | Tool / MCP Registry | 已实现 | 本地 tool registry、工具 profile、metadata CLI；MCP stdio client catalog 已有。注册层负责声明和同步，不负责每轮加载 |
 | 2. Agent Control Plane | Skill / Plugin Registry | 已实现 | 本地 skill registry、检索、索引；plugin 生命周期未做。注册层负责资产管理，不负责注入策略 |
 | 2. Agent Control Plane | Policy & Permission | 已实现 | permission mode、tool policy、approval、fail closed、audit context |
 | 2. Agent Control Plane | Config / Feature Flags | 已实现 | harness config、env override、config validation；feature flag 仍较轻 |
@@ -127,7 +127,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 3. Harness Runtime | Planner | 未开始 | 当前让模型自然规划，未实现显式 planner 模块 |
 | 3. Harness Runtime | Executor | 已实现 | tool dispatch、tool validation、execution result 回填 |
 | 3. Harness Runtime | Tool Orchestration | 部分实现 | 单轮多工具与 profile 已有；复杂工具 DAG / fan-out 未做 |
-| 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP client 生命周期、server 能力同步和 adapter 隔离未做 |
+| 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP stdio 生命周期和 server 能力同步已有，自动 runtime injection、adapter 隔离和 sandbox wrapper 未做 |
 | 3. Harness Runtime | Context Manager | 已实现 | session history、active task context、handoff、bundle、compaction |
 | 3. Harness Runtime | Context Budget / Compact | 已实现 | usage tracking、token/cost budget、session compact |
 | 3. Harness Runtime | Skill Runtime | 部分实现 | skill 可检索并注入上下文；按预算裁剪、运行时选择解释、和 memory/handoff 的闭环还要继续加强 |

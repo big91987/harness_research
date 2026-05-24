@@ -18,6 +18,7 @@ from harness.handoff import HandoffBuilder
 from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore, SessionMemoryExtractor
+from harness.mcp import McpStdioClient, list_mcp_tools, load_mcp_config
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.permissions import PermissionMode, Policy
 from harness.runs import RunStatus, RunStore
@@ -94,6 +95,14 @@ def build_parser() -> argparse.ArgumentParser:
     tools.add_argument("--max-bash-timeout-seconds", type=int)
     tools.add_argument("--sandbox-runner")
     tools.add_argument("--json", action="store_true")
+
+    mcp = subparsers.add_parser("mcp", help="Inspect and call stdio MCP servers.")
+    mcp.add_argument("--mcp-config", required=True, help="Path to a JSON config with mcpServers.")
+    mcp.add_argument("--list-tools", action="store_true")
+    mcp.add_argument("--server", help="Server name for --call-tool.")
+    mcp.add_argument("--call-tool", help="MCP tool name to call.")
+    mcp.add_argument("--args-json", default="{}", help="JSON object arguments for --call-tool.")
+    mcp.add_argument("--json", action="store_true")
 
     config_cmd = subparsers.add_parser("config", help="Show and validate merged harness config.")
     config_cmd.add_argument("--show", action="store_true")
@@ -799,6 +808,48 @@ def main(argv: list[str] | None = None) -> int:
         for name in tools.names():
             print(name)
         return 0
+    if args.command == "mcp":
+        configs = load_mcp_config(args.mcp_config)
+        if args.call_tool:
+            if not args.server:
+                raise SystemExit("--server is required with --call-tool")
+            matches = [config for config in configs if config.name == args.server]
+            if not matches:
+                raise SystemExit(f"mcp server not found: {args.server}")
+            call_args = json.loads(args.args_json)
+            if not isinstance(call_args, dict):
+                raise SystemExit("--args-json must be a JSON object")
+            with McpStdioClient(matches[0]) as client:
+                result = client.call_tool(args.call_tool, call_args)
+            if args.json:
+                print(
+                    json.dumps(
+                        {"server": args.server, "name": args.call_tool, "is_error": result.is_error, "output": result.output},
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+            else:
+                print(result.output)
+            return 1 if result.is_error else 0
+        if args.list_tools or not args.call_tool:
+            tools = list_mcp_tools(configs)
+            rows = [
+                {
+                    "server": tool.server,
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": tool.input_schema,
+                }
+                for tool in tools
+            ]
+            if args.json:
+                print(json.dumps(rows, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                for row in rows:
+                    print(f"{row['server']}.{row['name']}: {row['description']}")
+            return 0
     if args.command == "config":
         config = _merged_config(args)
         issues = config.validate()

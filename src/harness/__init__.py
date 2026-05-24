@@ -11,6 +11,7 @@ __all__ = [
     "checkpoint",
     "kernel",
     "memory",
+    "mcp",
     "model",
     "permissions",
     "schema",

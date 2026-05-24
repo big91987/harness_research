@@ -25,83 +25,23 @@
 
 下面四个系统都能映射到同一套六层架构，但重心不同。Claude Code 和 Codex 更接近 coding agent 产品级 harness，OpenClaw 更像多通道个人助理平台，Hermes Agent 更强调自学习、skills/memory 和多执行后端。这个教学仓不会直接复制任意一个系统的复杂度，而是把它们的成熟边界拆成可验证的小模块。
 
-四个对标 Harness 的分层图沿用母图的六层结构。下面先给出可直接用于 `gpt-image` 的生成稿；PNG 资产生成后放入 `specs/images/`，即可在本节替换为正式图片。
+四个对标 Harness 的分层图沿用母图的六层结构。它们不是重新定义一套架构，而是把不同产品的重心投影到同一张工程地图上。
 
-#### Claude Code 分层图 Prompt
+#### Claude Code 分层图
 
-```text
-Use case: infographic-diagram
-Asset type: architecture diagram for a technical course
-Primary request: Create a layered architecture diagram titled "Claude Code Harness Architecture".
-Style/medium: polished engineering infographic, clean white background, subtle Anthropic-orange accents, no mascots.
-Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
-Text (verbatim):
-1. Experience & Gateway: TUI / REPL, slash commands, print mode, IDE bridge, remote/direct sessions, SDK streams
-2. Agent Control Plane: Tool pool, MCP config scopes, Skill / Plugin / Agent registry, permission modes, feature flags, task registry
-3. Harness Runtime: query loop, streaming tool executor, subagent / forked agent, skill runtime, context compact, model fallback
-4. Execution & Security Infrastructure: Bash / PowerShell, file edit, sandbox adapter, permission hooks, worktree isolation, secure storage
-5. Knowledge & Business Data: CLAUDE.md, session memory, auto memory, MCP resources, LSP/code intelligence, web fetch/search
-6. Observability / Evaluation / Ops: analytics, OTel / Perfetto, query profiler, cost / usage, doctor, VCR fixtures
-Cross-cutting: Security / Governance / Quality / Lifecycle
-Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
-```
+![Claude Code Harness Architecture](images/Claude%20Code%20Harness%20Architecture.png)
 
-#### Codex 分层图 Prompt
+#### Codex 分层图
 
-```text
-Use case: infographic-diagram
-Asset type: architecture diagram for a technical course
-Primary request: Create a layered architecture diagram titled "Codex Harness Architecture".
-Style/medium: polished engineering infographic, clean white background, restrained blue-gray accents, no logos except text title.
-Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
-Text (verbatim):
-1. Experience & Gateway: TUI / CLI, codex exec, app server, desktop app, IDE extension protocol, SDK
-2. Agent Control Plane: config layering, permission profile, MCP servers, plugin marketplace, skill loader, hooks, agent roles
-3. Harness Runtime: turn loop, ToolRouter, streaming sampling, skill/plugin injection, auto compact, history manager
-4. Execution & Security Infrastructure: platform sandbox, unified exec, exec-server, PTY, network proxy, approval cache, keyring
-5. Knowledge & Business Data: AGENTS.md, memories, file search, connectors, MCP resources, rollout-derived memory
-6. Observability / Evaluation / Ops: rollout trace, trace reducer, OTel, doctor, analytics, state DB, tests
-Cross-cutting: Security / Governance / Quality / Lifecycle
-Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
-```
+![Codex Harness Architecture](images/Codex%20Harness%20Architecture.png)
 
-#### OpenClaw 分层图 Prompt
+#### OpenClaw 分层图
 
-```text
-Use case: infographic-diagram
-Asset type: architecture diagram for a technical course
-Primary request: Create a layered architecture diagram titled "OpenClaw Harness Architecture".
-Style/medium: polished engineering infographic, clean white background, teal and orange accents, no mascot illustration.
-Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
-Text (verbatim):
-1. Experience & Gateway: Gateway WS / HTTP, Control UI, WebChat, CLI, macOS / iOS / Android nodes, messaging channels
-2. Agent Control Plane: agent bindings, session routing, plugin registry, skills gating, auth profiles, cron, ACP control plane
-3. Harness Runtime: Pi embedded runner, Pi agent loop, tool streaming, context engine, subagent session protocol
-4. Execution & Security Infrastructure: Docker / SSH / OpenShell sandbox, exec approval, filesystem bridge, browser sandbox, secrets
-5. Knowledge & Business Data: Markdown memory, memory plugin slot, context engine, web search, channel connectors, business tools
-6. Observability / Evaluation / Ops: gateway logs, diagnostic events, cache trace, usage / cost, OTel plugin, doctor, security audit
-Cross-cutting: Security / Governance / Quality / Lifecycle
-Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
-```
+![OpenClaw Harness Architecture](images/OpenClaw%20Harness%20Architecture.png)
 
-#### Hermes Agent 分层图 Prompt
+#### Hermes Agent 分层图
 
-```text
-Use case: infographic-diagram
-Asset type: architecture diagram for a technical course
-Primary request: Create a layered architecture diagram titled "Hermes Agent Harness Architecture".
-Style/medium: polished engineering infographic, clean white background, restrained gold and dark-blue accents, no mythological illustration.
-Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
-Text (verbatim):
-1. Experience & Gateway: CLI / TUI, messaging gateway, Web dashboard, ACP adapter, OpenAI-format API server
-2. Agent Control Plane: toolsets, tool registry, MCP config, skills hub, plugins, model providers, cron, kanban workers
-3. Harness Runtime: conversation loop, tool executor, context compressor, memory manager, delegate subagents, auxiliary model
-4. Execution & Security Infrastructure: local / Docker / SSH / Singularity / Modal / Daytona / Vercel sandbox, approval, checkpoint, browser, computer use
-5. Knowledge & Business Data: skills, optional skills, state.db, FTS5 session search, memory providers, business connectors
-6. Observability / Evaluation / Ops: logs, usage / cost, trajectories, batch runner, trajectory compression, doctor, Langfuse plugin
-Cross-cutting: Security / Governance / Quality / Lifecycle
-Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
-```
+![Hermes Agent Harness Architecture](images/Hermes%20Agent%20Harness%20Architecture.png)
 
 ### 四个 Harness 对比表
 

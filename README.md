@@ -38,6 +38,7 @@ Implemented modules:
 - `harness.session`: JSONL session persistence.
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
+- `harness.migrations`: local state schema migration runner and CLI.
 - `harness.skills`: Markdown-backed skill registry, search, budgeted runtime selection, traceable prompt injection.
 - `harness.subagents`: minimal subagent registry, delegate runner, `delegate_task` tool, child sessions, restricted permissions, and parent/child trace events.
 - `harness.tasks`: local task ledger for long-running work and session association.

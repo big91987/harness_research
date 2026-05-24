@@ -165,7 +165,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 6. Observability / Evaluation / Ops | Regression / Golden Traces | 已实现 | golden cases、trace-derived eval、doctor checks |
 | 6. Observability / Evaluation / Ops | Doctor / Diagnostics | 已实现 | doctor JSON、sandbox probe、run directory check、config validation |
 | 6. Observability / Evaluation / Ops | Install / Update | 部分实现 | init scaffold 已有；install/update channel 未做 |
-| 6. Observability / Evaluation / Ops | Migration | 未开始 | 尚未做 state/schema migration |
+| 6. Observability / Evaluation / Ops | Migration | 部分实现 | State schema migration runner、status/apply/dry-run CLI 已有；真实状态迁移、backup、rollback 未做 |
 | 6. Observability / Evaluation / Ops | Daemon / Service | 未开始 | 后续 Harness Server / daemon 阶段实现 |
 | 6. Observability / Evaluation / Ops | Release Channels | 未开始 | 后续发布通道治理 |
 

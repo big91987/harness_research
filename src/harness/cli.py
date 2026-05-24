@@ -20,6 +20,7 @@ from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore, SessionMemoryExtractor
 from harness.mcp import McpStdioClient, list_mcp_tools, load_mcp_config, register_mcp_tools
+from harness.migrations import MigrationRunner
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.network_policy import NetworkPolicy
 from harness.permissions import PermissionMode, Policy
@@ -333,6 +334,13 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--skip-mock-smoke", action="store_true")
     verify.add_argument("--live-smoke", action="store_true")
     verify.add_argument("--live-tool-smoke", action="store_true")
+
+    migrations = subparsers.add_parser("migrations", help="Inspect and apply local state schema migrations.")
+    migrations.add_argument("--state-root", default=".harness/state")
+    migrations.add_argument("--status", action="store_true")
+    migrations.add_argument("--apply", action="store_true")
+    migrations.add_argument("--dry-run", action="store_true")
+    migrations.add_argument("--json", action="store_true")
 
     init = subparsers.add_parser("init", help="Create a local harness config and sample fixtures.")
     init.add_argument("--root", default=".harness-local")
@@ -1637,6 +1645,18 @@ def main(argv: list[str] | None = None) -> int:
                 print(result.output)
         print(f"overall: {report.passed}")
         return 0 if report.passed else 1
+    if args.command == "migrations":
+        runner = MigrationRunner(args.state_root)
+        report = runner.apply_pending(dry_run=args.dry_run) if args.apply else runner.status()
+        if args.json:
+            print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            print(f"current_version: {report.current_version}")
+            for migration in report.pending:
+                print(f"pending: {migration.version} {migration.name}")
+            for migration in report.applied:
+                print(f"applied: {migration.version} {migration.name}")
+        return 0
     if args.command == "init":
         result = scaffold_project(args.root, overwrite=args.overwrite)
         print(f"root: {result.root}")

@@ -232,6 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--memory-dir")
     doctor.add_argument("--skill-dir")
     doctor.add_argument("--task-dir")
+    doctor.add_argument("--json", action="store_true")
 
     verify = subparsers.add_parser("verify", help="Run local verification gates.")
     verify.add_argument("--work-dir", default=".harness/verify")
@@ -1056,6 +1057,26 @@ def main(argv: list[str] | None = None) -> int:
             tools_count=len(tools.names()),
             sandbox_runner=config.sandbox_runner,
         )
+        if args.json:
+            print(
+                json.dumps(
+                    {
+                        "overall": report.ok,
+                        "checks": {
+                            name: {
+                                "ok": check.ok,
+                                "level": "ok" if check.ok else check.level,
+                                "message": check.message,
+                            }
+                            for name, check in report.checks.items()
+                        },
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            return 0
         for name, check in report.checks.items():
             status = "ok" if check.ok else check.level
             print(f"{name}: {status} - {check.message}")

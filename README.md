@@ -231,6 +231,7 @@ PYTHONPATH=src python3 -m harness.cli --config /tmp/harness.json run "create fil
 
 ```bash
 PYTHONPATH=src python3 -m harness.cli doctor
+PYTHONPATH=src python3 -m harness.cli doctor --json
 PYTHONPATH=src python3 -m harness.cli trace --trace /tmp/harness-trace.jsonl
 PYTHONPATH=src python3 -m harness.cli eval \
   --trace /tmp/harness-trace.jsonl \
@@ -506,6 +507,7 @@ Doctor checks local writability and harness readiness:
 
 ```bash
 PYTHONPATH=src python3 -m harness.cli doctor
+PYTHONPATH=src python3 -m harness.cli doctor --json
 ```
 
 `prompt` permission mode asks for approval before mutating or dangerous tools:

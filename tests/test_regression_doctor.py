@@ -158,6 +158,34 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
     assert "model_config: warn" in doctor.stdout
     assert "sandbox_runner: warn" in doctor.stdout
 
+    doctor_json = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "doctor",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--memory-dir",
+            str(tmp_path / "memory"),
+            "--skill-dir",
+            str(tmp_path / "skills"),
+            "--task-dir",
+            str(tmp_path / "tasks"),
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(doctor_json.stdout)
+    assert payload["overall"] is True
+    assert payload["checks"]["workspace"]["ok"] is True
+    assert payload["checks"]["model_config"]["level"] == "warn"
+
 
 def test_cli_eval_suite_add_list_and_run(tmp_path: Path) -> None:
     trace = tmp_path / "trace.jsonl"

@@ -498,12 +498,23 @@ PYTHONPATH=src python3 -m harness.cli runs \
   --run-dir /tmp/harness-runs \
   --show <run-id> \
   --json
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
+  --session-dir /tmp/harness-sessions \
+  --trace /tmp/harness-trace.jsonl \
+  --audit /tmp/harness-audit.jsonl \
+  --diagnose <run-id> \
+  --json
 ```
 
 Every `run` command creates a run record before the kernel starts and finishes it
 after the turn ends. Records include the session id, turn id, stop reason,
 iteration count, status, and duration, giving future server or worker code a
 stable local run ledger instead of reconstructing runs from trace files.
+`runs --diagnose` joins the run record with session state plus trace/audit
+summaries for the same turn, which is the local failure-replay surface before a
+server UI exists.
 
 Configure lifecycle hooks:
 

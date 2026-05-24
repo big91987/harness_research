@@ -713,6 +713,89 @@ def test_cli_run_records_run_ledger(tmp_path: Path) -> None:
     assert record["duration_seconds"] >= 0
 
 
+def test_cli_runs_diagnose_summarizes_failed_run(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    trace = tmp_path / "trace.jsonl"
+    audit = tmp_path / "audit.jsonl"
+    responses = _write_mock_response(
+        tmp_path,
+        [
+            {
+                "content": "try write",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "name": "write_file",
+                        "arguments": {"path": "denied.txt", "content": "no"},
+                    }
+                ],
+            }
+        ],
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "diagnose failed run",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--run-dir",
+            str(run_dir),
+            "--trace",
+            str(trace),
+            "--audit",
+            str(audit),
+            "--permission",
+            "read-only",
+            "--max-iterations",
+            "1",
+            "--mock-responses",
+            str(responses),
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert result.returncode == 2
+    run_id = json.loads(result.stdout)["run_id"]
+
+    diagnose = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(trace),
+            "--audit",
+            str(audit),
+            "--diagnose",
+            run_id,
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(diagnose.stdout)
+
+    assert payload["run"]["status"] == "failed"
+    assert payload["run"]["stop_reason"] == "max_iterations"
+    assert payload["trace_summary"]["tool_errors"] == 1
+    assert payload["audit_summary"]["denied"] >= 1
+    assert payload["session"]["messages"] == 3
+
+
 def test_cli_sessions_export_and_import(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}
     source_dir = tmp_path / "source"

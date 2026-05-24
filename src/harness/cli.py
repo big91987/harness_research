@@ -148,6 +148,10 @@ def build_parser() -> argparse.ArgumentParser:
     runs = subparsers.add_parser("runs", help="List and show local harness run records.")
     runs.add_argument("--run-dir")
     runs.add_argument("--show")
+    runs.add_argument("--diagnose")
+    runs.add_argument("--session-dir")
+    runs.add_argument("--trace")
+    runs.add_argument("--audit")
     runs.add_argument("--status", choices=[status.value for status in RunStatus])
     runs.add_argument("--session")
     runs.add_argument("--limit", type=int)
@@ -465,6 +469,22 @@ def _session_snapshot_summary(index: int, session: Session) -> dict:
         "usage_prompt_tokens": int(session.usage.get("prompt_tokens", 0)),
         "usage_completion_tokens": int(session.usage.get("completion_tokens", 0)),
         "usage_total_tokens": int(session.usage.get("total_tokens", 0)),
+        "cost_usd": session.cost_usd,
+        "last_role": last.role if last else None,
+        "last_content": last.content if last else "",
+        "metadata": dict(session.metadata),
+    }
+
+
+def _session_summary_dict(session: Session) -> dict:
+    last = session.messages[-1] if session.messages else None
+    return {
+        "id": session.id,
+        "workspace": session.workspace,
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+        "messages": len(session.messages),
+        "usage": dict(session.usage),
         "cost_usd": session.cost_usd,
         "last_role": last.role if last else None,
         "last_content": last.content if last else "",
@@ -844,6 +864,39 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "runs":
         config = _merged_config(args)
         runs = RunStore(config.run_dir)
+        if args.diagnose:
+            try:
+                record = runs.load(args.diagnose)
+            except KeyError as exc:
+                raise SystemExit(str(exc)) from exc
+            session = JsonlSessionStore(config.session_dir).load(record.session_id) if record.session_id else None
+            payload = {
+                "run": _run_record_dict(record),
+                "session": _session_summary_dict(session) if session else None,
+                "trace_summary": TraceQuery(TraceRecorder(config.trace)).summary(
+                    session_id=record.session_id,
+                    turn_id=record.turn_id,
+                ),
+                "audit_summary": AuditQuery(AuditLog(config.audit)).summary(
+                    session_id=record.session_id,
+                    turn_id=record.turn_id,
+                ),
+            }
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            print(f"run: {record.id}")
+            print(f"status: {record.status}")
+            print(f"stop_reason: {record.stop_reason or ''}")
+            print(f"session: {record.session_id or ''}")
+            print(f"turn: {record.turn_id or ''}")
+            print("trace:")
+            for key, value in payload["trace_summary"].items():
+                print(f"  {key}: {value}")
+            print("audit:")
+            for key, value in payload["audit_summary"].items():
+                print(f"  {key}: {value}")
+            return 0
         if args.show:
             try:
                 record = runs.load(args.show)

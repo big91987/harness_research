@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+import subprocess
+import sys
 
 from harness.permissions import PermissionMode, Policy
 from harness.tools import default_tool_registry
@@ -152,6 +155,40 @@ def test_append_file_appends_to_existing_and_new_files(tmp_path: Path) -> None:
     assert not new_file.is_error
     assert (tmp_path / "notes.txt").read_text(encoding="utf-8") == "one\ntwo\n"
     assert (tmp_path / "nested" / "log.txt").read_text(encoding="utf-8") == "created\n"
+
+
+def test_append_file_serializes_concurrent_appends(tmp_path: Path) -> None:
+    script = """
+from harness.permissions import PermissionMode, Policy
+from harness.tools import default_tool_registry
+from harness.workspace import Workspace
+import sys
+
+tools = default_tool_registry()
+tools.get("append_file").run(
+    {"path": "log.txt", "content": sys.argv[2] + "\\n"},
+    Workspace(sys.argv[1]),
+    Policy(PermissionMode.WORKSPACE_WRITE),
+)
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(tmp_path), f"line-{index}"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(8)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    lines = (tmp_path / "log.txt").read_text(encoding="utf-8").splitlines()
+
+    assert set(lines) == {f"line-{index}" for index in range(8)}
 
 
 def test_append_file_requires_workspace_write_permission(tmp_path: Path) -> None:

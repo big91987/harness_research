@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from harness.permissions import PermissionMode, Policy
+from harness.storage import atomic_write_text, locked_append_text
 from harness.workspace import Workspace
 
 
@@ -250,15 +251,14 @@ def _read_line_range(path: Path, start_line: int, max_lines: int | None) -> str:
 def _write_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(str(args.get("content", "")), encoding="utf-8")
+    atomic_write_text(path, str(args.get("content", "")))
     return ToolResult(f"wrote {path.relative_to(workspace.root)}")
 
 
 def _append_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     path = workspace.resolve(args["path"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(str(args.get("content", "")))
+    locked_append_text(path, str(args.get("content", "")))
     return ToolResult(f"appended {path.relative_to(workspace.root)}")
 
 
@@ -291,7 +291,7 @@ def _edit_file(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     if old not in text:
         return ToolResult("old text not found", is_error=True)
     count = text.count(old) if replace_all else 1
-    path.write_text(text.replace(old, new, count), encoding="utf-8")
+    atomic_write_text(path, text.replace(old, new, count))
     return ToolResult(f"edited {path.relative_to(workspace.root)} replacements: {count}")
 
 

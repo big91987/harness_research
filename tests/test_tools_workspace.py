@@ -16,10 +16,17 @@ import subprocess
 import sys
 
 request = json.loads(sys.stdin.read())
+if request["tool"] == "python":
+    command = [sys.executable, "-c", request["code"]]
+    shell = False
+else:
+    command = request["command"]
+    shell = True
 completed = subprocess.run(
-    request["command"],
+    command,
     cwd=request["cwd"],
-    shell=True,
+    shell=shell,
+    input=request.get("stdin", ""),
     text=True,
     capture_output=True,
     timeout=request["timeout_seconds"],
@@ -314,6 +321,35 @@ def test_bash_runs_through_configured_sandbox_runner(tmp_path: Path) -> None:
     assert not result.is_error
     assert result.output == "ok"
     assert (tmp_path / "workspace" / "out.txt").read_text(encoding="utf-8") == "ok"
+
+
+def test_python_requires_danger_permission_and_sandbox_runner(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path)
+    tools = default_tool_registry()
+
+    denied = tools.get("python").run({"code": "print('ok')"}, workspace, Policy(PermissionMode.WORKSPACE_WRITE))
+    assert denied.is_error
+
+    allowed = tools.get("python").run({"code": "print('ok')"}, workspace, Policy(PermissionMode.DANGER))
+    assert allowed.is_error
+    assert "sandbox runner is required" in allowed.output
+
+
+def test_python_runs_through_configured_sandbox_runner(tmp_path: Path) -> None:
+    workspace = Workspace(tmp_path / "workspace")
+    tools = default_tool_registry(sandbox_runner=_write_bash_runner(tmp_path / "runner.py"))
+
+    result = tools.get("python").run(
+        {
+            "code": "from pathlib import Path\nPath('out.txt').write_text('py-ok')\nprint(Path('out.txt').read_text())",
+        },
+        workspace,
+        Policy(PermissionMode.DANGER),
+    )
+
+    assert not result.is_error
+    assert result.output == "py-ok\n"
+    assert (tmp_path / "workspace" / "out.txt").read_text(encoding="utf-8") == "py-ok"
 
 
 def test_move_path_moves_files_inside_workspace(tmp_path: Path) -> None:
@@ -750,6 +786,9 @@ def test_tool_registry_describes_tools() -> None:
     assert "pattern" in registry.describe("grep")["parameters"]["properties"]
     assert registry.describe("bash")["category"] == "execution"
     assert registry.describe("bash")["sandbox_required"] is True
+    assert registry.describe("python")["category"] == "execution"
+    assert registry.describe("python")["sandbox_required"] is True
+    assert registry.describe("python")["parameters"]["required"] == ["code"]
     assert delete_description["name"] == "delete_path"
     assert delete_description["required_permission"] == "workspace-write"
     assert delete_description["parameters"]["required"] == ["path"]
@@ -767,6 +806,7 @@ def test_tool_registry_can_apply_coding_profile() -> None:
     registry = default_tool_registry(tool_profile="coding")
 
     assert "bash" in registry.names()
+    assert "python" in registry.names()
     assert "write_file" in registry.names()
     assert "grep" in registry.names()
 

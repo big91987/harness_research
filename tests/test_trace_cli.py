@@ -147,7 +147,7 @@ def test_cli_trace_and_doctor_commands(tmp_path: Path) -> None:
         env={**os.environ, "PYTHONPATH": "src"},
     )
     assert "workspace:" in doctor_result.stdout
-    assert "tools: ok - 12 tools registered" in doctor_result.stdout
+    assert "tools: ok - 13 tools registered" in doctor_result.stdout
 
 
 def test_cli_trace_can_filter_and_emit_json(tmp_path: Path) -> None:

@@ -34,7 +34,7 @@ def main() -> int:
 
 def run_request(request: dict[str, Any]) -> int:
     tool = str(request.get("tool") or "")
-    if tool != "bash":
+    if tool not in {"bash", "python"}:
         print(f"unsupported sandbox tool: {tool}", file=sys.stderr)
         return 2
     workspace = _resolve_existing_dir(str(request.get("workspace_root") or ""))
@@ -53,9 +53,17 @@ def run_request(request: dict[str, Any]) -> int:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".sb") as handle:
             handle.write(profile)
             handle.flush()
+            command = (
+                [sys.executable, "-c", str(request.get("code") or "")]
+                if tool == "python"
+                else [sandbox_exec, "-f", handle.name, "/bin/sh", "-c", str(request.get("command") or "")]
+            )
+            if tool == "python":
+                command = [sandbox_exec, "-f", handle.name, *command]
             completed = subprocess.run(
-                [sandbox_exec, "-f", handle.name, "/bin/sh", "-c", str(request.get("command") or "")],
+                command,
                 cwd=cwd,
+                input=str(request.get("stdin") or ""),
                 text=True,
                 capture_output=True,
                 timeout=timeout,

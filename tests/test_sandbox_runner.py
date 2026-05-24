@@ -41,6 +41,22 @@ def test_sandbox_runner_runs_bash_inside_workspace(tmp_path: Path) -> None:
     assert (tmp_path / "out.txt").read_text(encoding="utf-8") == "ok"
 
 
+def test_sandbox_runner_runs_python_inside_workspace(tmp_path: Path) -> None:
+    request = {
+        "tool": "python",
+        "workspace_root": str(tmp_path),
+        "cwd": str(tmp_path),
+        "code": "from pathlib import Path\nPath('out.txt').write_text('py-ok')\nprint(Path('out.txt').read_text())",
+        "timeout_seconds": 5,
+    }
+
+    result = _run_runner(request)
+
+    assert result.returncode == 0
+    assert result.stdout == "py-ok\n"
+    assert (tmp_path / "out.txt").read_text(encoding="utf-8") == "py-ok"
+
+
 def test_sandbox_runner_rejects_cwd_outside_workspace(tmp_path: Path) -> None:
     outside = tmp_path.parent
     request = {

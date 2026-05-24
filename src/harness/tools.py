@@ -38,6 +38,7 @@ TOOL_PROFILES: dict[str, tuple[str, ...]] = {
         "list_files",
         "make_directory",
         "move_path",
+        "python",
         "read_file",
         "write_file",
     ),
@@ -440,6 +441,49 @@ def _bash(args: dict[str, Any], workspace: Workspace) -> ToolResult:
     return ToolResult(output)
 
 
+def _python(args: dict[str, Any], workspace: Workspace) -> ToolResult:
+    code = str(args["code"])
+    cwd = workspace.resolve(args.get("cwd") or ".")
+    if not cwd.is_dir():
+        return ToolResult(f"cwd is not a directory: {args.get('cwd') or '.'}", is_error=True)
+    extra_env = {str(key): str(value) for key, value in dict(args.get("env") or {}).items()}
+    default_timeout = int(args.get("_default_bash_timeout_seconds") or DEFAULT_BASH_TIMEOUT_SECONDS)
+    max_timeout = int(args.get("_max_bash_timeout_seconds") or DEFAULT_MAX_BASH_TIMEOUT_SECONDS)
+    requested_timeout = int(args.get("timeout_seconds") or default_timeout)
+    timeout = min(requested_timeout, max_timeout)
+    runner = str(args.get("_sandbox_runner") or "").strip()
+    if not runner:
+        return ToolResult("sandbox runner is required for python", is_error=True)
+    request = {
+        "tool": "python",
+        "code": code,
+        "stdin": str(args.get("stdin") or ""),
+        "cwd": str(cwd),
+        "workspace_root": str(workspace.root),
+        "env": extra_env,
+        "timeout_seconds": timeout,
+    }
+    try:
+        completed = subprocess.run(
+            shlex.split(runner),
+            input=json.dumps(request, ensure_ascii=False),
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return ToolResult(f"sandbox runner timed out after {timeout} seconds", True)
+    except FileNotFoundError:
+        return ToolResult(f"sandbox runner not found: {runner}", True)
+    output = completed.stdout
+    if completed.stderr:
+        output += ("\n" if output else "") + completed.stderr
+    if completed.returncode != 0:
+        return ToolResult(output or f"python failed with exit code {completed.returncode}", True)
+    return ToolResult(output)
+
+
 def _with_runtime_args(handler: ToolHandler, runtime_args: dict[str, Any]) -> ToolHandler:
     def wrapped(args: dict[str, Any], workspace: Workspace) -> ToolResult:
         merged = {**runtime_args, **args}
@@ -470,6 +514,14 @@ def default_tool_registry(
     )
     bash_handler = _with_runtime_args(
         _bash,
+        {
+            "_default_bash_timeout_seconds": limits.default_bash_timeout_seconds,
+            "_max_bash_timeout_seconds": limits.max_bash_timeout_seconds,
+            "_sandbox_runner": limits.sandbox_runner,
+        },
+    )
+    python_handler = _with_runtime_args(
+        _python,
         {
             "_default_bash_timeout_seconds": limits.default_bash_timeout_seconds,
             "_max_bash_timeout_seconds": limits.max_bash_timeout_seconds,
@@ -651,6 +703,27 @@ def default_tool_registry(
                 ["command"],
             ),
             bash_handler,
+            PermissionMode.DANGER,
+            max_output_chars=limits.max_output_chars,
+            category=TOOL_CATEGORY_EXECUTION,
+            sandbox_required=True,
+        )
+    )
+    registry.register(
+        Tool(
+            "python",
+            "Run Python code in the workspace through the configured sandbox runner.",
+            _schema(
+                {
+                    "code": {"type": "string"},
+                    "stdin": {"type": "string"},
+                    "cwd": {"type": "string"},
+                    "timeout_seconds": {"type": "integer"},
+                    "env": {"type": "object"},
+                },
+                ["code"],
+            ),
+            python_handler,
             PermissionMode.DANGER,
             max_output_chars=limits.max_output_chars,
             category=TOOL_CATEGORY_EXECUTION,

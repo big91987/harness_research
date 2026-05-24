@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import platform
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -45,22 +48,85 @@ def run_request(request: dict[str, Any]) -> int:
         return 2
     env = _build_env(dict(request.get("env") or {}))
     try:
-        completed = subprocess.run(
-            str(request.get("command") or ""),
-            cwd=cwd,
-            shell=True,
-            text=True,
-            capture_output=True,
-            timeout=timeout,
-            env=env,
-            check=False,
-        )
+        sandbox_exec = _require_macos_sandbox()
+        profile = _macos_sandbox_profile(workspace)
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".sb") as handle:
+            handle.write(profile)
+            handle.flush()
+            completed = subprocess.run(
+                [sandbox_exec, "-f", handle.name, "/bin/sh", "-c", str(request.get("command") or "")],
+                cwd=cwd,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
+                env=env,
+                check=False,
+            )
+    except SandboxUnavailableError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     except subprocess.TimeoutExpired:
         print(f"command timed out after {timeout} seconds", file=sys.stderr)
         return 124
     sys.stdout.write(completed.stdout)
     sys.stderr.write(completed.stderr)
     return int(completed.returncode)
+
+
+class SandboxUnavailableError(RuntimeError):
+    pass
+
+
+def _require_macos_sandbox() -> str:
+    if platform.system() != "Darwin":
+        raise SandboxUnavailableError("macOS sandbox-exec is required for bash sandboxing")
+    path = shutil.which("sandbox-exec")
+    if not path:
+        raise SandboxUnavailableError("sandbox-exec not found")
+    return path
+
+
+def _macos_sandbox_profile(workspace: Path) -> str:
+    root = _escape_sandbox_string(str(workspace))
+    sensitive_denies = "\n".join(
+        f'(deny file-read-data (subpath "{_escape_sandbox_string(path)}"))'
+        for path in _sensitive_read_paths()
+    )
+    return f"""
+(version 1)
+(deny default)
+(allow process*)
+(allow sysctl*)
+(allow mach-lookup)
+(allow file-read*)
+{sensitive_denies}
+(allow file-write* (subpath "{root}"))
+(allow file-write* (literal "/dev/null"))
+""".strip()
+
+
+def _sensitive_read_paths() -> list[str]:
+    home = Path.home()
+    paths = [
+        "/etc",
+        "/private/etc",
+        str(home / ".aws"),
+        str(home / ".azure"),
+        str(home / ".codex"),
+        str(home / ".config"),
+        str(home / ".docker"),
+        str(home / ".gnupg"),
+        str(home / ".hermes"),
+        str(home / ".kube"),
+        str(home / ".netrc"),
+        str(home / ".npmrc"),
+        str(home / ".ssh"),
+    ]
+    return sorted(set(paths))
+
+
+def _escape_sandbox_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _build_env(extra: dict[str, Any]) -> dict[str, str]:

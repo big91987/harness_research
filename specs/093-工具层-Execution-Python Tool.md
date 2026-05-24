@@ -29,6 +29,22 @@
   - `coding` profile 暴露该工具；`safe` profile 不暴露。
   - sandbox runner 使用 macOS `sandbox-exec`，只允许写 workspace，拒绝常见宿主敏感路径读取。
 
+### 实现原理与流程图
+
+`python` 工具本身不直接执行代码，而是构造一个 JSON request 发给 sandbox runner。工具层负责权限、参数校验、超时上限和输出截断；sandbox runner 负责真正的进程隔离。这样高风险执行能力被卡在工具调用层，而不是让整个 runtime 都进入重容器。
+
+```mermaid
+flowchart TD
+  Model["model tool_call: python"] --> Policy["permission=danger?"]
+  Policy -->|deny| Denied["ToolResult error"]
+  Policy -->|allow| Request["build sandbox JSON request"]
+  Request --> Runner["sandbox_runner"]
+  Runner --> Sandbox["macOS sandbox-exec"]
+  Sandbox --> Python["sys.executable -c code"]
+  Python --> Output["stdout/stderr"]
+  Output --> ToolResult["ToolResult to model"]
+```
+
 ### 过程记录
 
 我们先写红测试：registry 里应该出现 `python`，它必须要求 `danger` 权限和 sandbox runner；配置 runner 后能在 workspace 写文件；sandbox runner 自己也要能处理 `tool=python`。红点集中在两个地方：工具注册表没有 `python`，runner 只接受 `bash`。随后把 `python` 接到同一条 JSON runner 协议里，保持和 `bash` 一致的 fail-closed 行为。
@@ -53,6 +69,21 @@
   - `tests/test_tools_workspace.py::test_python_requires_danger_permission_and_sandbox_runner`
   - `tests/test_tools_workspace.py::test_python_runs_through_configured_sandbox_runner`
   - `tests/test_sandbox_runner.py::test_sandbox_runner_runs_python_inside_workspace`
+
+### 测试例跑法
+
+```bash
+python3 -m pytest tests/test_tools_workspace.py::test_python_requires_danger_permission_and_sandbox_runner tests/test_tools_workspace.py::test_python_runs_through_configured_sandbox_runner tests/test_sandbox_runner.py::test_sandbox_runner_runs_python_inside_workspace -q
+
+PYTHONPATH=src python3 -m harness.cli tools \
+  --workspace /tmp/harness-ws \
+  --permission danger \
+  --sandbox-runner "python3 -m harness.sandbox_runner" \
+  --call python \
+  --args-json '{"code":"print(\"py-ok\")"}'
+```
+
+读者验证点：第一条验证权限和沙箱路径；第二条让读者直接调用 Python 工具。
 
 ### 未来扩展计划
 

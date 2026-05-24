@@ -61,9 +61,25 @@ flowchart TB
 
 - 全局作用：这个模块在上图中的位置。
 - 输入 / 输出 / 行为：可以被工程验证的接口。
+- 实现原理：用面向中文技术读者的语言讲清楚模块为什么这样设计。
+- 实现流程图：至少一张 Mermaid 流程图，说明数据、控制流或状态流。
 - 过程记录：当时为什么做、测试怎么红、怎么变绿。
 - 当前实现：代码、CLI、测试、验证方式。
+- 测试例跑法：给读者一条或多条可复制命令，能在本仓库验证这一章。
 - 未来扩展：留给 server、多 worker、UI 或更强治理的方向。
+
+### 单篇文章验收表
+
+| 检查项 | 要求 |
+|---|---|
+| 文件名 / Title | 文件名去掉 `.md` 后必须等于一级标题 |
+| 架构引用 | 必须链接回本文，并说明自己位于哪一层 |
+| 实现原理 | 不能只写一句话，要解释设计取舍 |
+| 流程图 | 必须有 Mermaid 图，读者能顺着图复述模块行为 |
+| 输入输出 | 必须列清输入、输出、错误行为 |
+| 当前实现 | 必须列代码模块、CLI 或测试入口 |
+| 测试跑法 | 必须给可复制命令 |
+| 未来扩展 | 必须说明后续 server / 多 worker / UI / 治理方向之一 |
 
 ## English Version
 
@@ -71,4 +87,3 @@ This series documents the local-first harness from zero to one. Each article map
 one implementation step to the global layered architecture above, using a
 Feynman-style explanation: why it exists, what it takes as input, what it
 produces, how it behaves, how we verified it, and what should come next.
-

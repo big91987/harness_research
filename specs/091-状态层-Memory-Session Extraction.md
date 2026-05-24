@@ -28,6 +28,21 @@ Session Extraction 是本地 harness 的第一条“做梦”支线：从已经�
   - 和既有 memory 重复的条目会被跳过。
   - 非 JSON 输出 fail closed，不从自由文本里猜。
 
+### 实现原理与流程图
+
+Session Extraction 把 session 当成“原料”，把模型当成“提炼器”，把 Markdown memory 当成“长期笔记”。它不会把整段对话原封不动塞进 memory，因为那会把噪音也永久化；它要求模型返回结构化 JSON，再由本地代码做清洗、去重和写入。这样模型负责语义提炼，Harness 负责边界和一致性。
+
+```mermaid
+flowchart TD
+  Session["Session JSONL"] --> Load["load latest snapshot"]
+  Load --> Transcript["render transcript"]
+  Transcript --> Model["model extracts JSON memories"]
+  Model --> Parse["parse JSON array/object"]
+  Parse --> Clean["clean + dedupe"]
+  Clean --> Memory["append to memory.md"]
+  Parse -->|invalid JSON| Fail["fail closed"]
+```
+
 ### 过程记录
 
 我们先写了两个单元测试：一个证明 extractor 能把模型返回写入 memory，另一个证明空项和重复项不会污染长期记忆。随后补了 CLI smoke：先创建 session，再通过 `memory --extract-session` 抽取到 memory。最后用真实 DeepSeek 跑了一次：session 中写入“尽量使用真实 DeepSeek 验证”，extractor 成功沉淀为 Markdown memory。
@@ -48,6 +63,23 @@ Session Extraction 是本地 harness 的第一条“做梦”支线：从已经�
 - 测试：
   - `tests/test_memory.py`
   - `tests/test_cli_smoke.py::test_cli_memory_extracts_from_session`
+
+### 测试例跑法
+
+```bash
+python3 -m pytest tests/test_memory.py tests/test_cli_smoke.py::test_cli_memory_extracts_from_session -q
+
+HARNESS_BASE_URL="https://api.example.com" \
+HARNESS_API_KEY="..." \
+HARNESS_MODEL="model-name" \
+PYTHONPATH=src python3 -m harness.cli memory \
+  --memory-dir /tmp/harness-memory \
+  --session-dir /tmp/harness-sessions \
+  --extract-session <session-id> \
+  --json
+```
+
+读者验证点：第一条验证 extractor 行为；第二条展示真实模型抽取入口。
 
 ### 未来扩展计划
 

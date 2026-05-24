@@ -1187,6 +1187,87 @@ def test_cli_runs_drain_respects_max_runs(tmp_path: Path) -> None:
     assert len(json.loads(pending.stdout)) == 1
 
 
+def test_cli_worker_marks_started_run_failed_on_exception(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    enqueued = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--task-id",
+            "missing-task",
+            "--enqueue",
+            "queued prompt",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    run_id = json.loads(enqueued.stdout)["id"]
+
+    executed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--task-dir",
+            str(tmp_path / "tasks"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--run-next",
+            "--mock-final",
+            "unused",
+            "--json",
+        ],
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert executed.returncode == 2
+    payload = json.loads(executed.stdout)
+    assert payload["run_id"] == run_id
+    assert payload["status"] == "failed"
+    assert payload["stop_reason"] == "worker_error"
+    assert "task not found" in payload["error"]
+
+    shown = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--show",
+            run_id,
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    record = json.loads(shown.stdout)
+    assert record["status"] == "failed"
+    assert record["stop_reason"] == "worker_error"
+    assert "task not found" in record["metadata"]["worker_error"]
+
+
 def test_cli_runs_diagnose_summarizes_failed_run(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs"
     trace = tmp_path / "trace.jsonl"

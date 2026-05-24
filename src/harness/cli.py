@@ -173,6 +173,11 @@ def build_parser() -> argparse.ArgumentParser:
     runs.add_argument("--session-dir")
     runs.add_argument("--trace")
     runs.add_argument("--audit")
+    runs.add_argument("--artifact-dir")
+    runs.add_argument("--memory-dir")
+    runs.add_argument("--skill-dir")
+    runs.add_argument("--task-dir")
+    runs.add_argument("--hook-config")
     runs.add_argument("--mock-final")
     runs.add_argument("--mock-responses")
     runs.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
@@ -564,40 +569,68 @@ def _prepare_worker_run_args(args: argparse.Namespace, record) -> None:  # noqa:
 
 
 def _run_queued_record(args: argparse.Namespace, config: HarnessConfig, runs: RunStore, record) -> dict:  # noqa: ANN001
-    _prepare_worker_run_args(args, record)
-    kernel, session = build_kernel(args)
-    runs.start(record.id, session_id=session.id)
-    task_store = TaskStore(config.task_dir) if record.task_id else None
-    if record.task_id and task_store is not None:
-        task_store.update(record.task_id, status=TaskStatus.IN_PROGRESS, session_id=session.id)
-    result = kernel.run_turn(session, record.prompt)
-    completed = runs.finish(
-        record.id,
-        status=RunStatus.SUCCEEDED if result.stop_reason == "final_answer" else RunStatus.FAILED,
-        session_id=result.session_id,
-        turn_id=result.turn_id,
-        stop_reason=result.stop_reason,
-        iterations=result.iterations,
-    )
-    if record.task_id and task_store is not None:
-        task_store.update(
-            record.task_id,
-            status=TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED,
+    session_id = record.session_id or ""
+    try:
+        _prepare_worker_run_args(args, record)
+        kernel, session = build_kernel(args)
+        session_id = session.id
+        runs.start(record.id, session_id=session.id)
+        task_store = TaskStore(config.task_dir) if record.task_id else None
+        if record.task_id and task_store is not None:
+            task_store.update(record.task_id, status=TaskStatus.IN_PROGRESS, session_id=session.id)
+        result = kernel.run_turn(session, record.prompt)
+        completed = runs.finish(
+            record.id,
+            status=RunStatus.SUCCEEDED if result.stop_reason == "final_answer" else RunStatus.FAILED,
             session_id=result.session_id,
+            turn_id=result.turn_id,
+            stop_reason=result.stop_reason,
+            iterations=result.iterations,
+        )
+        if record.task_id and task_store is not None:
+            task_store.update(
+                record.task_id,
+                status=TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED,
+                session_id=result.session_id,
+                metadata={
+                    "last_stop_reason": result.stop_reason,
+                    "last_iterations": str(result.iterations),
+                },
+            )
+        return {
+            "final_text": result.final_text,
+            "run_id": completed.id,
+            "session_id": result.session_id,
+            "turn_id": result.turn_id,
+            "iterations": result.iterations,
+            "stop_reason": result.stop_reason,
+            "status": completed.status,
+        }
+    except (Exception, SystemExit) as exc:  # noqa: BLE001 - worker must not leave claimed records unfinished.
+        error = str(exc)
+        completed = runs.finish(
+            record.id,
+            status=RunStatus.FAILED,
+            session_id=session_id,
+            turn_id="",
+            stop_reason="worker_error",
+            iterations=0,
             metadata={
-                "last_stop_reason": result.stop_reason,
-                "last_iterations": str(result.iterations),
+                "worker_error": error,
+                "worker_error_type": type(exc).__name__,
             },
         )
-    return {
-        "final_text": result.final_text,
-        "run_id": completed.id,
-        "session_id": result.session_id,
-        "turn_id": result.turn_id,
-        "iterations": result.iterations,
-        "stop_reason": result.stop_reason,
-        "status": completed.status,
-    }
+        return {
+            "final_text": "",
+            "run_id": completed.id,
+            "session_id": session_id,
+            "turn_id": "",
+            "iterations": 0,
+            "stop_reason": "worker_error",
+            "status": completed.status,
+            "error": error,
+            "error_type": type(exc).__name__,
+        }
 
 
 def main(argv: list[str] | None = None) -> int:

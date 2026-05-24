@@ -1601,6 +1601,76 @@ def test_cli_memory_list_and_clear(tmp_path: Path) -> None:
     assert "cleared" in cleared.stdout
 
 
+def test_cli_memory_extracts_from_session(tmp_path: Path) -> None:
+    env = {**os.environ, "PYTHONPATH": "src"}
+    session_dir = tmp_path / "sessions"
+    memory_dir = tmp_path / "memory"
+    run = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "Remember that this project prefers TDD.",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(session_dir),
+            "--mock-final",
+            "noted",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    session_id = json.loads(run.stdout)["session_id"]
+
+    extracted = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "memory",
+            "--memory-dir",
+            str(memory_dir),
+            "--session-dir",
+            str(session_dir),
+            "--extract-session",
+            session_id,
+            "--mock-final",
+            '["Project prefers TDD."]',
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    payload = json.loads(extracted.stdout)
+
+    assert payload["session_id"] == session_id
+    assert payload["added"] == ["Project prefers TDD."]
+
+    listed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "memory",
+            "--memory-dir",
+            str(memory_dir),
+            "--list",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env=env,
+    )
+    assert "- Project prefers TDD." in listed.stdout
+
+
 def test_cli_tasks_create_update_show_and_associate_run(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}
     task_dir = tmp_path / "tasks"

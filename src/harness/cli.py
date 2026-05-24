@@ -17,7 +17,7 @@ from harness.eval import EvalExpectation, EvalSuiteStore, evaluate_trace, run_go
 from harness.handoff import HandoffBuilder
 from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
-from harness.memory import MarkdownMemoryStore
+from harness.memory import MarkdownMemoryStore, SessionMemoryExtractor
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.permissions import PermissionMode, Policy
 from harness.runs import RunStatus, RunStore
@@ -118,10 +118,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     memory = subparsers.add_parser("memory", help="Add or search local markdown memory.")
     memory.add_argument("--memory-dir")
+    memory.add_argument("--session-dir")
     memory.add_argument("--add")
     memory.add_argument("--search")
     memory.add_argument("--list", action="store_true")
     memory.add_argument("--clear", action="store_true")
+    memory.add_argument("--extract-session")
+    memory.add_argument("--max-items", type=int)
+    memory.add_argument("--base-url")
+    memory.add_argument("--api-key")
+    memory.add_argument("--model")
+    memory.add_argument("--model-timeout-seconds", type=int)
+    memory.add_argument("--temperature", type=float)
+    memory.add_argument("--top-p", type=float)
+    memory.add_argument("--max-tokens", type=int)
+    memory.add_argument("--mock-final")
+    memory.add_argument("--json", action="store_true")
 
     skills = subparsers.add_parser("skills", help="Add, search, or render local markdown skills.")
     skills.add_argument("--skill-dir")
@@ -850,6 +862,49 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "memory":
         config = _merged_config(args)
         memory = MarkdownMemoryStore(config.memory_dir)
+        if args.extract_session:
+            session = JsonlSessionStore(config.session_dir).load(args.extract_session)
+            if session is None:
+                raise SystemExit(f"session not found: {args.extract_session}")
+            if args.mock_final is not None:
+                model = FakeModelClient([ModelResponse(content=args.mock_final)])
+            else:
+                model = OpenAICompatibleModelClient(
+                    base_url=_require(config.base_url, "--base-url, config base_url, or HARNESS_BASE_URL"),
+                    api_key=_require(config.api_key, "--api-key, config api_key, or HARNESS_API_KEY"),
+                    model=config.model,
+                    timeout_seconds=config.model_timeout_seconds,
+                    temperature=config.temperature,
+                    top_p=config.top_p,
+                    max_tokens=config.max_tokens,
+                )
+            try:
+                added = SessionMemoryExtractor(
+                    model=model,
+                    memory=memory,
+                    max_items=args.max_items or 20,
+                ).extract(session)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            "session_id": session.id,
+                            "added": added,
+                            "count": len(added),
+                        },
+                        ensure_ascii=False,
+                        indent=2,
+                        sort_keys=True,
+                    )
+                )
+            else:
+                print(f"session: {session.id}")
+                print(f"added: {len(added)}")
+                for item in added:
+                    print(f"- {item}")
+            return 0
         if args.add:
             memory.add(args.add)
             print("added")

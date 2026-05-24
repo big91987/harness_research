@@ -442,10 +442,24 @@ PYTHONPATH=src python3 -m harness.cli memory \
   --memory-dir /tmp/harness-memory \
   --list
 
+HARNESS_BASE_URL="https://api.example.com" \
+HARNESS_API_KEY="..." \
+HARNESS_MODEL="model-name" \
+PYTHONPATH=src python3 -m harness.cli memory \
+  --memory-dir /tmp/harness-memory \
+  --session-dir /tmp/harness-sessions \
+  --extract-session <session-id> \
+  --json
+
 PYTHONPATH=src python3 -m harness.cli memory \
   --memory-dir /tmp/harness-memory \
   --clear
 ```
+
+`memory --extract-session` uses the configured model to distill durable facts,
+preferences, project constraints, and recurring workflow guidance from a saved
+session into Markdown memory. It deduplicates against existing memory and rejects
+non-JSON extraction responses instead of guessing.
 
 Manage long-running tasks:
 

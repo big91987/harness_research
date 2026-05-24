@@ -43,6 +43,37 @@ def test_live_smoke_is_skipped_without_opt_in(tmp_path: Path) -> None:
     assert "live_tool_smoke" not in report.results
 
 
+def test_verify_pytest_env_excludes_live_model_credentials(tmp_path: Path, monkeypatch) -> None:
+    seen_envs = []
+
+    def fake_run(name, command, cwd, env):  # noqa: ANN001 - test double matches private helper.
+        seen_envs.append((name, dict(env)))
+        return VerifyResult(name, True, "")
+
+    monkeypatch.setenv("HARNESS_BASE_URL", "https://api.example.com")
+    monkeypatch.setenv("HARNESS_API_KEY", "secret")
+    monkeypatch.setenv("HARNESS_MODEL", "live-model")
+    monkeypatch.setattr(verify_module, "_run", fake_run)
+
+    report = run_verify(
+        VerifyOptions(
+            root=Path.cwd(),
+            work_dir=tmp_path,
+            run_tests=True,
+            run_compile=False,
+            run_mock_smoke=False,
+            run_live_smoke=False,
+        )
+    )
+
+    pytest_env = dict(seen_envs[0][1])
+    assert report.passed
+    assert seen_envs[0][0] == "pytest"
+    assert "HARNESS_BASE_URL" not in pytest_env
+    assert "HARNESS_API_KEY" not in pytest_env
+    assert "HARNESS_MODEL" not in pytest_env
+
+
 def test_verify_fails_invalid_config(tmp_path: Path) -> None:
     report = run_verify(
         VerifyOptions(

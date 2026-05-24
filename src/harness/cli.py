@@ -233,6 +233,10 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--memory-dir")
     doctor.add_argument("--skill-dir")
     doctor.add_argument("--task-dir")
+    doctor.add_argument("--trace")
+    doctor.add_argument("--audit")
+    doctor.add_argument("--artifact-dir")
+    doctor.add_argument("--sandbox-runner")
     doctor.add_argument("--json", action="store_true")
 
     verify = subparsers.add_parser("verify", help="Run local verification gates.")

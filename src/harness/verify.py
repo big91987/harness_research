@@ -50,7 +50,7 @@ def run_verify(options: VerifyOptions) -> VerifyReport:
         results["config_validation"] = _run_config_validation(options.config)
 
     if options.run_tests:
-        results["pytest"] = _run("pytest", [sys.executable, "-m", "pytest"], root, env)
+        results["pytest"] = _run("pytest", [sys.executable, "-m", "pytest"], root, _clean_test_env(env))
 
     if options.run_compile:
         compile_env = {**env, "PYTHONPYCACHEPREFIX": str(work_dir / "pycache")}
@@ -85,6 +85,20 @@ def _run(name: str, command: list[str], cwd: Path, env: dict[str, str]) -> Verif
     completed = subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, check=False)
     output = completed.stdout + completed.stderr
     return VerifyResult(name, completed.returncode == 0, output)
+
+
+def _clean_test_env(env: dict[str, str]) -> dict[str, str]:
+    cleaned = dict(env)
+    for name in (
+        "HARNESS_BASE_URL",
+        "HARNESS_API_KEY",
+        "HARNESS_MODEL",
+        "HARNESS_MODEL_TIMEOUT_SECONDS",
+        "OPENAI_BASE_URL",
+        "OPENAI_API_KEY",
+    ):
+        cleaned.pop(name, None)
+    return cleaned
 
 
 def _run_mock_smoke(root: Path, work_dir: Path, env: dict[str, str]) -> VerifyResult:

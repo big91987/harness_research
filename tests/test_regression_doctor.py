@@ -96,6 +96,45 @@ def test_doctor_report_checks_paths_and_model_config(tmp_path: Path) -> None:
     assert report.checks["sandbox_runner"].level == "warn"
 
 
+def test_cli_doctor_probes_configured_sandbox_runner(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "doctor",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--memory-dir",
+            str(tmp_path / "memory"),
+            "--skill-dir",
+            str(tmp_path / "skills"),
+            "--task-dir",
+            str(tmp_path / "tasks"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--artifact-dir",
+            str(tmp_path / "artifacts"),
+            "--sandbox-runner",
+            f"{sys.executable} -m harness.sandbox_runner",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["overall"] is True
+    assert payload["checks"]["sandbox_runner"]["ok"] is True
+    assert "workspace probe" in payload["checks"]["sandbox_runner"]["message"]
+
+
 def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
     trace = tmp_path / "trace.jsonl"
     recorder = TraceRecorder(trace)
@@ -146,6 +185,12 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
             str(tmp_path / "skills"),
             "--task-dir",
             str(tmp_path / "tasks"),
+            "--trace",
+            str(tmp_path / "doctor-trace.jsonl"),
+            "--audit",
+            str(tmp_path / "doctor-audit.jsonl"),
+            "--artifact-dir",
+            str(tmp_path / "doctor-artifacts"),
         ],
         check=True,
         text=True,
@@ -174,6 +219,12 @@ def test_cli_golden_and_doctor_commands(tmp_path: Path) -> None:
             str(tmp_path / "skills"),
             "--task-dir",
             str(tmp_path / "tasks"),
+            "--trace",
+            str(tmp_path / "doctor-trace.jsonl"),
+            "--audit",
+            str(tmp_path / "doctor-audit.jsonl"),
+            "--artifact-dir",
+            str(tmp_path / "doctor-artifacts"),
             "--json",
         ],
         check=True,

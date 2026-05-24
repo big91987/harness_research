@@ -2,16 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import select
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from harness.tools import ToolResult
+from harness.permissions import PermissionMode
+from harness.tools import Tool, ToolRegistry, ToolResult
 
 
 DEFAULT_MCP_TIMEOUT_SECONDS = 10
+TOOL_CATEGORY_MCP = "mcp"
 
 
 @dataclass(frozen=True)
@@ -202,6 +205,44 @@ def list_mcp_tools(configs: list[McpServerConfig]) -> list[McpToolSpec]:
         with McpStdioClient(config) as client:
             tools.extend(client.list_tools())
     return tools
+
+
+def register_mcp_tools(registry: ToolRegistry, configs: list[McpServerConfig]) -> None:
+    config_by_name = {config.name: config for config in configs}
+    for spec in list_mcp_tools(configs):
+        config = config_by_name[spec.server]
+        registry.register(
+            Tool(
+                name=mcp_tool_runtime_name(spec.server, spec.name),
+                description=f"[MCP:{spec.server}] {spec.description}".strip(),
+                parameters=spec.input_schema,
+                handler=_mcp_tool_handler(config, spec.name),
+                required_permission=PermissionMode.DANGER,
+                category=TOOL_CATEGORY_MCP,
+                sandbox_required=True,
+            )
+        )
+
+
+def mcp_tool_runtime_name(server: str, tool: str) -> str:
+    return f"mcp__{_tool_name_part(server)}__{_tool_name_part(tool)}"
+
+
+def _tool_name_part(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_]+", "_", value).strip("_").lower()
+    if not cleaned:
+        raise ValueError("mcp server and tool names must contain at least one alphanumeric character")
+    if cleaned[0].isdigit():
+        cleaned = f"_{cleaned}"
+    return cleaned
+
+
+def _mcp_tool_handler(config: McpServerConfig, tool_name: str):
+    def handler(arguments: dict[str, Any], _workspace: object) -> ToolResult:
+        with McpStdioClient(config) as client:
+            return client.call_tool(tool_name, arguments)
+
+    return handler
 
 
 def _content_to_text(content: Any) -> str:

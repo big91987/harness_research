@@ -27,7 +27,7 @@ Implemented modules:
 - `harness.kernel`: turn loop, model call, tool dispatch, session persistence, trace events.
 - `harness.model`: fake model for tests and OpenAI-compatible chat completions client.
 - `harness.tools`: built-in `list_files`, `read_file`, `write_file`, `append_file`, `diff_file`, `edit_file`, `move_path`, `make_directory`, `copy_path`, `delete_path`, `grep`, `bash`, `python`.
-- `harness.mcp`: Claude/Codex-style `mcpServers` config loading plus a minimal stdio MCP client for `initialize`, `tools/list`, and explicit `tools/call` smoke checks.
+- `harness.mcp`: Claude/Codex-style `mcpServers` config loading, stdio MCP `initialize` / `tools/list` / `tools/call`, and explicit runtime loading into namespaced MCP tools.
 - `harness.sandbox_runner`: stdin/stdout JSON runner entry point for high-risk local execution tools; Phase 1 uses macOS `sandbox-exec` for local bash and Python execution, permits writes only inside the workspace, blocks common host-sensitive reads, and fails closed when the sandbox is unavailable.
 - `harness.permissions`: read-only, workspace-write, danger, and prompt policy modes.
 - `harness.workspace`: workspace path containment.
@@ -637,8 +637,20 @@ PYTHONPATH=src python3 -m harness.cli mcp \
   --json
 ```
 
-MCP tools are cataloged first. They are not automatically injected into the agent
-runtime until policy, sandbox, and trace wrappers are applied.
+Load MCP tools into a local agent turn explicitly:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli run "use an MCP tool" \
+  --mcp-config /tmp/harness-mcp.json \
+  --permission danger \
+  --base-url "$HARNESS_BASE_URL" \
+  --api-key "$HARNESS_API_KEY" \
+  --model "$HARNESS_MODEL"
+```
+
+Runtime MCP tools are namespaced as `mcp__server__tool` and require `danger`
+permission. The current local implementation marks them as sandbox-required but
+does not yet wrap the MCP server process in the sandbox runner.
 
 PYTHONPATH=src python3 -m harness.cli tools \
   --workspace /tmp/harness-ws \

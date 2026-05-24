@@ -18,7 +18,7 @@ from harness.handoff import HandoffBuilder
 from harness.hooks import HookRunner
 from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore, SessionMemoryExtractor
-from harness.mcp import McpStdioClient, list_mcp_tools, load_mcp_config
+from harness.mcp import McpStdioClient, list_mcp_tools, load_mcp_config, register_mcp_tools
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.permissions import PermissionMode, Policy
 from harness.runs import RunStatus, RunStore
@@ -53,6 +53,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--run-dir")
     run.add_argument("--task-id")
     run.add_argument("--hook-config")
+    run.add_argument("--mcp-config")
     run.add_argument("--base-url")
     run.add_argument("--api-key")
     run.add_argument("--model")
@@ -331,16 +332,20 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
             top_p=config.top_p,
             max_tokens=config.max_tokens,
         )
+    tools = default_tool_registry(
+        max_output_chars=config.max_output_chars,
+        max_file_read_bytes=config.max_file_read_bytes,
+        default_bash_timeout_seconds=config.default_bash_timeout_seconds,
+        max_bash_timeout_seconds=config.max_bash_timeout_seconds,
+        sandbox_runner=config.sandbox_runner,
+        tool_profile=config.tool_profile,
+    )
+    if config.mcp_config:
+        register_mcp_tools(tools, load_mcp_config(config.mcp_config))
+
     kernel = AgentKernel(
         model=model,
-        tools=default_tool_registry(
-            max_output_chars=config.max_output_chars,
-            max_file_read_bytes=config.max_file_read_bytes,
-            default_bash_timeout_seconds=config.default_bash_timeout_seconds,
-            max_bash_timeout_seconds=config.max_bash_timeout_seconds,
-            sandbox_runner=config.sandbox_runner,
-            tool_profile=config.tool_profile,
-        ),
+        tools=tools,
         store=store,
         workspace=workspace,
         policy=Policy(
@@ -385,6 +390,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "task_dir",
         "run_dir",
         "hook_config",
+        "mcp_config",
         "base_url",
         "api_key",
         "model",

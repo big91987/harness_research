@@ -16,6 +16,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "task_dir": "tasks",
           "run_dir": "runs",
           "hook_config": "hooks.json",
+          "mcp_config": "mcp.json",
           "base_url": "https://config.example.com",
           "api_key": "from-config",
           "model": "config-model",
@@ -54,6 +55,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.task_dir == "tasks"
     assert config.run_dir == "runs"
     assert config.hook_config == "hooks.json"
+    assert config.mcp_config == "mcp.json"
     assert config.model == "env-model"
     assert config.model_timeout_seconds == 11
     assert config.temperature == 0.3
@@ -87,6 +89,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_TASK_DIR", "env-tasks")
     monkeypatch.setenv("HARNESS_RUN_DIR", "env-runs")
     monkeypatch.setenv("HARNESS_HOOK_CONFIG", "env-hooks.json")
+    monkeypatch.setenv("HARNESS_MCP_CONFIG", "env-mcp.json")
     monkeypatch.setenv("HARNESS_MAX_MODEL_RETRIES", "3")
     monkeypatch.setenv("HARNESS_MODEL_TIMEOUT_SECONDS", "17")
     monkeypatch.setenv("HARNESS_TOP_P", "0.75")
@@ -105,6 +108,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.task_dir == "env-tasks"
     assert config.run_dir == "env-runs"
     assert config.hook_config == "env-hooks.json"
+    assert config.mcp_config == "env-mcp.json"
     assert config.max_model_retries == 3
     assert config.model_timeout_seconds == 17
     assert config.top_p == 0.75

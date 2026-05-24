@@ -26,6 +26,7 @@ class HarnessConfig:
     task_dir: str = ".harness/tasks"
     run_dir: str = ".harness/runs"
     hook_config: str | None = None
+    mcp_config: str | None = None
     base_url: str | None = None
     api_key: str | None = None
     model: str = "gpt-4.1-mini"
@@ -73,6 +74,7 @@ class HarnessConfig:
             "HARNESS_TASK_DIR": "task_dir",
             "HARNESS_RUN_DIR": "run_dir",
             "HARNESS_HOOK_CONFIG": "hook_config",
+            "HARNESS_MCP_CONFIG": "mcp_config",
             "HARNESS_BASE_URL": "base_url",
             "OPENAI_BASE_URL": "base_url",
             "HARNESS_API_KEY": "api_key",

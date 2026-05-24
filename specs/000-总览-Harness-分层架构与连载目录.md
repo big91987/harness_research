@@ -127,7 +127,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 3. Harness Runtime | Planner | 未开始 | 当前让模型自然规划，未实现显式 planner 模块 |
 | 3. Harness Runtime | Executor | 已实现 | tool dispatch、tool validation、execution result 回填 |
 | 3. Harness Runtime | Tool Orchestration | 部分实现 | 单轮多工具与 profile 已有；复杂工具 DAG / fan-out 未做 |
-| 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP stdio 生命周期和 server 能力同步已有，自动 runtime injection、adapter 隔离和 sandbox wrapper 未做 |
+| 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP stdio 生命周期、server 能力同步、namespaced runtime injection 已有；server 级 sandbox wrapper、resources/prompts、多 transport 未做 |
 | 3. Harness Runtime | Context Manager | 已实现 | session history、active task context、handoff、bundle、compaction |
 | 3. Harness Runtime | Context Budget / Compact | 已实现 | usage tracking、token/cost budget、session compact |
 | 3. Harness Runtime | Skill Runtime | 部分实现 | skill 可检索并注入上下文；按预算裁剪、运行时选择解释、和 memory/handoff 的闭环还要继续加强 |

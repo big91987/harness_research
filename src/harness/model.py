@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from harness.network_policy import NetworkPolicy
 from harness.schema import Message, ModelResponse, ToolCall
 
 
@@ -40,6 +41,7 @@ class OpenAICompatibleModelClient(ModelClient):
     temperature: float | None = None
     top_p: float | None = None
     max_tokens: int | None = None
+    network_policy: NetworkPolicy | None = None
 
     def build_payload(self, messages: list[Message], tools: list[dict[str, Any]]) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -60,6 +62,8 @@ class OpenAICompatibleModelClient(ModelClient):
     def generate(self, messages: list[Message], tools: list[dict[str, Any]]) -> ModelResponse:
         payload = self.build_payload(messages, tools)
         url = self.base_url.rstrip("/") + "/chat/completions"
+        if self.network_policy:
+            self.network_policy.check_url(url)
         request = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),

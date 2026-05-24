@@ -20,6 +20,7 @@ from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore, SessionMemoryExtractor
 from harness.mcp import McpStdioClient, list_mcp_tools, load_mcp_config, register_mcp_tools
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
+from harness.network_policy import NetworkPolicy
 from harness.permissions import PermissionMode, Policy
 from harness.runs import RunStatus, RunStore
 from harness.scaffold import scaffold_project
@@ -72,6 +73,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--max-model-retries", type=int)
     run.add_argument("--max-total-tokens", type=int)
     run.add_argument("--max-cost-usd", type=float)
+    run.add_argument("--network-allow-host", action="append", dest="network_allow_hosts", default=None)
+    run.add_argument("--network-deny-host", action="append", dest="network_deny_hosts", default=None)
     run.add_argument("--sandbox-runner")
     run.add_argument("--fail-fast-on-tool-error", action="store_true", default=None)
     run.add_argument("--checkpoint-before", action="store_true")
@@ -345,6 +348,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
             temperature=config.temperature,
             top_p=config.top_p,
             max_tokens=config.max_tokens,
+            network_policy=_network_policy(config),
         )
     tools = default_tool_registry(
         max_output_chars=config.max_output_chars,
@@ -430,6 +434,8 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "output_cost_per_million_tokens",
         "max_total_tokens",
         "max_cost_usd",
+        "network_allow_hosts",
+        "network_deny_hosts",
     ):
         value = getattr(args, attr, None)
         if value is not None:
@@ -451,6 +457,15 @@ def _require(value: str | None, label: str) -> str:
     if not value:
         raise SystemExit(f"missing required {label}")
     return value
+
+
+def _network_policy(config: HarnessConfig) -> NetworkPolicy | None:
+    if not config.network_allow_hosts and not config.network_deny_hosts:
+        return None
+    return NetworkPolicy(
+        allow_hosts=list(config.network_allow_hosts or []),
+        deny_hosts=list(config.network_deny_hosts or []),
+    )
 
 
 def _load_mock_responses(path: str | Path) -> list[ModelResponse]:
@@ -1009,6 +1024,7 @@ def main(argv: list[str] | None = None) -> int:
                     temperature=config.temperature,
                     top_p=config.top_p,
                     max_tokens=config.max_tokens,
+                    network_policy=_network_policy(config),
                 )
             try:
                 added = SessionMemoryExtractor(

@@ -26,6 +26,7 @@ Implemented modules:
 - `harness.cli`: local command line entry point.
 - `harness.kernel`: turn loop, model call, tool dispatch, session persistence, trace events.
 - `harness.model`: fake model for tests and OpenAI-compatible chat completions client.
+- `harness.network_policy`: host allow/deny egress policy for model requests.
 - `harness.tools`: built-in `list_files`, `read_file`, `write_file`, `append_file`, `diff_file`, `edit_file`, `move_path`, `make_directory`, `copy_path`, `delete_path`, `grep`, `bash`, `python`.
 - `harness.mcp`: Claude/Codex-style `mcpServers` config loading, stdio MCP `initialize` / `tools/list` / `tools/call`, and explicit runtime loading into namespaced MCP tools.
 - `harness.sandbox_runner`: stdin/stdout JSON runner entry point for high-risk local execution tools; Phase 1 uses macOS `sandbox-exec` for local bash and Python execution, permits writes only inside the workspace, blocks common host-sensitive reads, and fails closed when the sandbox is unavailable.

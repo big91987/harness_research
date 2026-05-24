@@ -1,6 +1,7 @@
 import pytest
 
 from harness.model import ModelProtocolError, OpenAICompatibleModelClient
+from harness.network_policy import NetworkPolicy
 from harness.schema import Message, ToolCall
 from harness.tools import default_tool_registry
 
@@ -118,3 +119,17 @@ def test_openai_client_parses_reasoning_content_from_response_message() -> None:
 
     assert response.metadata["reasoning_content"] == "must be echoed"
     assert response.tool_calls == [ToolCall("call-1", "write_file", {"path": "a.txt", "content": "ok"})]
+
+
+def test_openai_client_checks_network_policy_before_request() -> None:
+    client = OpenAICompatibleModelClient(
+        base_url="https://blocked.example.com",
+        api_key="secret",
+        model="test-model",
+        network_policy=NetworkPolicy(allow_hosts=["api.example.com"]),
+    )
+
+    with pytest.raises(PermissionError) as exc:
+        client.generate([Message.user("hello")], [])
+
+    assert "host is not allowed" in str(exc.value)

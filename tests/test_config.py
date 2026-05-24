@@ -42,6 +42,8 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "output_cost_per_million_tokens": 2.5,
           "max_total_tokens": 1000,
           "max_cost_usd": 0.02
+          ,"network_allow_hosts": ["api.deepseek.com"]
+          ,"network_deny_hosts": ["blocked.example.com"]
         }
         """,
         encoding="utf-8",
@@ -81,6 +83,8 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.output_cost_per_million_tokens == 2.5
     assert config.max_total_tokens == 1000
     assert config.max_cost_usd == 0.02
+    assert config.network_allow_hosts == ["api.deepseek.com"]
+    assert config.network_deny_hosts == ["blocked.example.com"]
     assert "from-config" not in config.redacted_dict().values()
 
 
@@ -103,6 +107,8 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_TOOL_PROFILE", "safe")
     monkeypatch.setenv("HARNESS_FAIL_FAST_ON_TOOL_ERROR", "true")
     monkeypatch.setenv("HARNESS_API_KEY_SECRET", "env-model-key")
+    monkeypatch.setenv("HARNESS_NETWORK_ALLOW_HOSTS", "api.deepseek.com,*.example.com")
+    monkeypatch.setenv("HARNESS_NETWORK_DENY_HOSTS", "blocked.example.com")
 
     config = HarnessConfig.load()
 
@@ -124,6 +130,8 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.tool_profile == "safe"
     assert config.fail_fast_on_tool_error is True
     assert config.api_key_secret == "env-model-key"
+    assert config.network_allow_hosts == ["api.deepseek.com", "*.example.com"]
+    assert config.network_deny_hosts == ["blocked.example.com"]
 
 
 def test_config_validate_reports_errors_and_warnings() -> None:

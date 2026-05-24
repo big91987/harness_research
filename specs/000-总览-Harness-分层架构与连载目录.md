@@ -140,7 +140,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 4. Execution & Security Infrastructure | Workspace / Filesystem | 已实现 | path guard、read/write/append/edit/diff/move/copy/delete/list/grep |
 | 4. Execution & Security Infrastructure | Shell / Process Runner | 已实现 | bash 通过 sandbox runner 执行，支持 cwd/env/profile |
 | 4. Execution & Security Infrastructure | Browser / Computer Use | 未开始 | 预留给浏览器自动化和计算机使用工具，按策略必须走 sandbox/runner |
-| 4. Execution & Security Infrastructure | Network Policy | 未开始 | 目前未做网络域名/出口策略 |
+| 4. Execution & Security Infrastructure | Network Policy | 部分实现 | model egress allow/deny host 策略已有；HTTP MCP、browser、connector、代理和审计未做 |
 | 4. Execution & Security Infrastructure | Approval Runtime | 部分实现 | prompt approval 已有；集中式 approval service 未做 |
 | 4. Execution & Security Infrastructure | Secrets / Credentials | 部分实现 | 本地 SecretStore、redacted list、api_key_secret 解析已有；Keychain/KMS、scope、rotation、tool-level injection 未做 |
 | 4. Execution & Security Infrastructure | Artifact Store | 已实现 | artifact register/query/verify、checkpoint artifact manifest |

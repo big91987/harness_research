@@ -52,6 +52,8 @@ class HarnessConfig:
     output_cost_per_million_tokens: float = 0.0
     max_total_tokens: int | None = None
     max_cost_usd: float | None = None
+    network_allow_hosts: list[str] | None = None
+    network_deny_hosts: list[str] | None = None
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> "HarnessConfig":
@@ -104,6 +106,8 @@ class HarnessConfig:
             "HARNESS_OUTPUT_COST_PER_MILLION_TOKENS": "output_cost_per_million_tokens",
             "HARNESS_MAX_TOTAL_TOKENS": "max_total_tokens",
             "HARNESS_MAX_COST_USD": "max_cost_usd",
+            "HARNESS_NETWORK_ALLOW_HOSTS": "network_allow_hosts",
+            "HARNESS_NETWORK_DENY_HOSTS": "network_deny_hosts",
         }
         for env_name, attr in mapping.items():
             value = os.environ.get(env_name)
@@ -129,7 +133,7 @@ class HarnessConfig:
                 "top_p",
             }:
                 setattr(self, attr, float(value))
-            elif attr in {"allowed_tools", "denied_tools"}:
+            elif attr in {"allowed_tools", "denied_tools", "network_allow_hosts", "network_deny_hosts"}:
                 setattr(self, attr, [item.strip() for item in value.split(",") if item.strip()])
             elif attr == "fail_fast_on_tool_error":
                 setattr(self, attr, value.strip().lower() in {"1", "true", "yes", "on"})

@@ -14,6 +14,7 @@ __all__ = [
     "memory",
     "mcp",
     "model",
+    "network_policy",
     "permissions",
     "schema",
     "scaffold",

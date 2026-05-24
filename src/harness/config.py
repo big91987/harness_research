@@ -24,6 +24,7 @@ class HarnessConfig:
     memory_dir: str = ".harness/memory"
     skill_dir: str = ".harness/skills"
     task_dir: str = ".harness/tasks"
+    run_dir: str = ".harness/runs"
     hook_config: str | None = None
     base_url: str | None = None
     api_key: str | None = None
@@ -70,6 +71,7 @@ class HarnessConfig:
             "HARNESS_MEMORY_DIR": "memory_dir",
             "HARNESS_SKILL_DIR": "skill_dir",
             "HARNESS_TASK_DIR": "task_dir",
+            "HARNESS_RUN_DIR": "run_dir",
             "HARNESS_HOOK_CONFIG": "hook_config",
             "HARNESS_BASE_URL": "base_url",
             "OPENAI_BASE_URL": "base_url",

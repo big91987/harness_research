@@ -19,6 +19,7 @@ from harness.kernel import AgentKernel
 from harness.memory import MarkdownMemoryStore
 from harness.model import FakeModelClient, OpenAICompatibleModelClient
 from harness.permissions import PermissionMode, Policy
+from harness.runs import RunStatus, RunStore
 from harness.scaffold import scaffold_project
 from harness.schema import ModelResponse
 from harness.schema import ToolCall
@@ -47,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--memory-dir")
     run.add_argument("--skill-dir")
     run.add_argument("--task-dir")
+    run.add_argument("--run-dir")
     run.add_argument("--task-id")
     run.add_argument("--hook-config")
     run.add_argument("--base-url")
@@ -142,6 +144,14 @@ def build_parser() -> argparse.ArgumentParser:
     tasks.add_argument("--status", choices=[status.value for status in TaskStatus])
     tasks.add_argument("--session")
     tasks.add_argument("--json", action="store_true")
+
+    runs = subparsers.add_parser("runs", help="List and show local harness run records.")
+    runs.add_argument("--run-dir")
+    runs.add_argument("--show")
+    runs.add_argument("--status", choices=[status.value for status in RunStatus])
+    runs.add_argument("--session")
+    runs.add_argument("--limit", type=int)
+    runs.add_argument("--json", action="store_true")
 
     trace = subparsers.add_parser("trace", help="Summarize a trace JSONL file.")
     trace.add_argument("--trace")
@@ -328,6 +338,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "memory_dir",
         "skill_dir",
         "task_dir",
+        "run_dir",
         "hook_config",
         "base_url",
         "api_key",
@@ -461,12 +472,22 @@ def _session_snapshot_summary(index: int, session: Session) -> dict:
     }
 
 
+def _run_record_dict(record) -> dict:  # noqa: ANN001 - CLI stays decoupled from run dataclass.
+    data = record.to_dict()
+    if record.ended_at is not None:
+        data["duration_seconds"] = max(0.0, record.ended_at - record.started_at)
+    else:
+        data["duration_seconds"] = None
+    return data
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "run":
         config = _merged_config(args)
         run_trace = TraceRecorder(config.trace)
+        run_store = RunStore(config.run_dir)
         checkpoint = None
         if args.checkpoint_before or args.restore_checkpoint_on_failure:
             label = args.checkpoint_label or f"before-run-{args.prompt[:40]}"
@@ -483,6 +504,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"checkpoint: {checkpoint.id}")
                 print(f"checkpoint_manifest: {checkpoint.manifest_path}")
         kernel, session = build_kernel(args)
+        run_record = run_store.create(
+            prompt=args.prompt,
+            workspace=config.workspace,
+            session_id=session.id,
+            task_id=args.task_id,
+        )
         task_store = TaskStore(config.task_dir) if args.task_id else None
         if args.task_id:
             session.metadata["task_id"] = args.task_id
@@ -492,6 +519,14 @@ def main(argv: list[str] | None = None) -> int:
                 session_id=session.id,
             )
         result = kernel.run_turn(session, args.prompt)
+        completed_run = run_store.finish(
+            run_record.id,
+            status=RunStatus.SUCCEEDED if result.stop_reason == "final_answer" else RunStatus.FAILED,
+            session_id=result.session_id,
+            turn_id=result.turn_id,
+            stop_reason=result.stop_reason,
+            iterations=result.iterations,
+        )
         if args.task_id and task_store is not None:
             final_status = TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED
             task_store.update(
@@ -525,6 +560,7 @@ def main(argv: list[str] | None = None) -> int:
                 json.dumps(
                     {
                         "final_text": result.final_text,
+                        "run_id": completed_run.id,
                         "session_id": result.session_id,
                         "turn_id": result.turn_id,
                         "iterations": result.iterations,
@@ -540,6 +576,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         else:
             print(result.final_text)
+            print(f"\nrun: {completed_run.id}")
             print(f"\nsession: {result.session_id}")
             print(f"stop_reason: {result.stop_reason}")
         return 0 if result.stop_reason == "final_answer" else 2
@@ -803,6 +840,37 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         for task in task_list:
             print(f"{task.id} {task.status} {task.title}")
+        return 0
+    if args.command == "runs":
+        config = _merged_config(args)
+        runs = RunStore(config.run_dir)
+        if args.show:
+            try:
+                record = runs.load(args.show)
+            except KeyError as exc:
+                raise SystemExit(str(exc)) from exc
+            payload = _run_record_dict(record)
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            print(f"run: {record.id}")
+            print(f"status: {record.status}")
+            print(f"session: {record.session_id or ''}")
+            print(f"turn: {record.turn_id or ''}")
+            print(f"stop_reason: {record.stop_reason or ''}")
+            print(f"iterations: {record.iterations}")
+            print(f"workspace: {record.workspace}")
+            print(f"prompt: {record.prompt}")
+            return 0
+        records = runs.list(status=args.status, session_id=args.session, limit=args.limit)
+        if args.json:
+            print(json.dumps([_run_record_dict(record) for record in records], ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        for record in records:
+            print(
+                f"{record.id} {record.status} session={record.session_id or ''} "
+                f"turn={record.turn_id or ''} stop_reason={record.stop_reason or ''}"
+            )
         return 0
     if args.command == "trace":
         config = _merged_config(args)

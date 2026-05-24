@@ -660,6 +660,59 @@ def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     assert '"messages": 4' in listing.stdout
 
 
+def test_cli_run_records_run_ledger(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "ledger",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--run-dir",
+            str(run_dir),
+            "--mock-final",
+            "ledger-ok",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(result.stdout)
+    assert payload["run_id"]
+
+    show = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--show",
+            payload["run_id"],
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    record = json.loads(show.stdout)
+
+    assert record["status"] == "succeeded"
+    assert record["session_id"] == payload["session_id"]
+    assert record["turn_id"] == payload["turn_id"]
+    assert record["stop_reason"] == "final_answer"
+    assert record["duration_seconds"] >= 0
+
+
 def test_cli_sessions_export_and_import(tmp_path: Path) -> None:
     env = {**os.environ, "PYTHONPATH": "src"}
     source_dir = tmp_path / "source"

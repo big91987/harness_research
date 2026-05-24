@@ -14,6 +14,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "memory_dir": "memory",
           "skill_dir": "skills",
           "task_dir": "tasks",
+          "run_dir": "runs",
           "hook_config": "hooks.json",
           "base_url": "https://config.example.com",
           "api_key": "from-config",
@@ -51,6 +52,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.workspace == "ws"
     assert config.skill_dir == "skills"
     assert config.task_dir == "tasks"
+    assert config.run_dir == "runs"
     assert config.hook_config == "hooks.json"
     assert config.model == "env-model"
     assert config.model_timeout_seconds == 11
@@ -83,6 +85,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_MAX_COST_USD", "0.25")
     monkeypatch.setenv("HARNESS_SKILL_DIR", "env-skills")
     monkeypatch.setenv("HARNESS_TASK_DIR", "env-tasks")
+    monkeypatch.setenv("HARNESS_RUN_DIR", "env-runs")
     monkeypatch.setenv("HARNESS_HOOK_CONFIG", "env-hooks.json")
     monkeypatch.setenv("HARNESS_MAX_MODEL_RETRIES", "3")
     monkeypatch.setenv("HARNESS_MODEL_TIMEOUT_SECONDS", "17")
@@ -100,6 +103,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.max_cost_usd == 0.25
     assert config.skill_dir == "env-skills"
     assert config.task_dir == "env-tasks"
+    assert config.run_dir == "env-runs"
     assert config.hook_config == "env-hooks.json"
     assert config.max_model_retries == 3
     assert config.model_timeout_seconds == 17

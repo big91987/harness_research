@@ -17,6 +17,7 @@ def test_scaffold_project_writes_config_and_samples(tmp_path: Path) -> None:
     assert config["workspace"].endswith("workspace")
     assert config["skill_dir"].endswith("skills")
     assert config["task_dir"].endswith("tasks")
+    assert config["run_dir"].endswith("runs")
     assert config["hook_config"].endswith("hooks.json")
     assert config["model_timeout_seconds"] == 120
     assert config["tool_profile"] == "coding"

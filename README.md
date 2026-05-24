@@ -18,6 +18,7 @@ CLI
   -> MarkdownMemoryStore
   -> SkillStore
   -> TaskStore
+  -> RunStore
 ```
 
 Implemented modules:
@@ -35,6 +36,7 @@ Implemented modules:
 - `harness.memory`: Markdown-backed persistent memory.
 - `harness.skills`: Markdown-backed skill registry, search, and prompt injection.
 - `harness.tasks`: local task ledger for long-running work and session association.
+- `harness.runs`: local run ledger for each CLI turn, including status, session, turn, stop reason, and duration.
 - `harness.hooks`: local lifecycle command hooks for harness events.
 - `harness.handoff`: Markdown handoff generation for long-running session continuity.
 - `harness.trace`: JSONL trajectory/trace events.
@@ -480,6 +482,28 @@ last stop reason in task metadata. Follow-up turns and future server APIs theref
 have both a stable state anchor and task-aware prompts.
 Tasks also keep an append-only history of create/update changes so long-running
 work has an auditable state trail.
+
+Inspect run records:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
+  --status failed \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
+  --show <run-id> \
+  --json
+```
+
+Every `run` command creates a run record before the kernel starts and finishes it
+after the turn ends. Records include the session id, turn id, stop reason,
+iteration count, status, and duration, giving future server or worker code a
+stable local run ledger instead of reconstructing runs from trace files.
 
 Configure lifecycle hooks:
 

@@ -21,6 +21,115 @@
 
 右侧 Cross-cutting 表示横切关注点：Security / Governance / Quality / Lifecycle。它不是单独一层，而是贯穿所有层的约束。
 
+### 四个先进 Harness 的分层对标
+
+下面四个系统都能映射到同一套六层架构，但重心不同。Claude Code 和 Codex 更接近 coding agent 产品级 harness，OpenClaw 更像多通道个人助理平台，Hermes Agent 更强调自学习、skills/memory 和多执行后端。这个教学仓不会直接复制任意一个系统的复杂度，而是把它们的成熟边界拆成可验证的小模块。
+
+四个对标 Harness 的分层图沿用母图的六层结构。下面先给出可直接用于 `gpt-image` 的生成稿；PNG 资产生成后放入 `specs/images/`，即可在本节替换为正式图片。
+
+#### Claude Code 分层图 Prompt
+
+```text
+Use case: infographic-diagram
+Asset type: architecture diagram for a technical course
+Primary request: Create a layered architecture diagram titled "Claude Code Harness Architecture".
+Style/medium: polished engineering infographic, clean white background, subtle Anthropic-orange accents, no mascots.
+Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
+Text (verbatim):
+1. Experience & Gateway: TUI / REPL, slash commands, print mode, IDE bridge, remote/direct sessions, SDK streams
+2. Agent Control Plane: Tool pool, MCP config scopes, Skill / Plugin / Agent registry, permission modes, feature flags, task registry
+3. Harness Runtime: query loop, streaming tool executor, subagent / forked agent, skill runtime, context compact, model fallback
+4. Execution & Security Infrastructure: Bash / PowerShell, file edit, sandbox adapter, permission hooks, worktree isolation, secure storage
+5. Knowledge & Business Data: CLAUDE.md, session memory, auto memory, MCP resources, LSP/code intelligence, web fetch/search
+6. Observability / Evaluation / Ops: analytics, OTel / Perfetto, query profiler, cost / usage, doctor, VCR fixtures
+Cross-cutting: Security / Governance / Quality / Lifecycle
+Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
+```
+
+#### Codex 分层图 Prompt
+
+```text
+Use case: infographic-diagram
+Asset type: architecture diagram for a technical course
+Primary request: Create a layered architecture diagram titled "Codex Harness Architecture".
+Style/medium: polished engineering infographic, clean white background, restrained blue-gray accents, no logos except text title.
+Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
+Text (verbatim):
+1. Experience & Gateway: TUI / CLI, codex exec, app server, desktop app, IDE extension protocol, SDK
+2. Agent Control Plane: config layering, permission profile, MCP servers, plugin marketplace, skill loader, hooks, agent roles
+3. Harness Runtime: turn loop, ToolRouter, streaming sampling, skill/plugin injection, auto compact, history manager
+4. Execution & Security Infrastructure: platform sandbox, unified exec, exec-server, PTY, network proxy, approval cache, keyring
+5. Knowledge & Business Data: AGENTS.md, memories, file search, connectors, MCP resources, rollout-derived memory
+6. Observability / Evaluation / Ops: rollout trace, trace reducer, OTel, doctor, analytics, state DB, tests
+Cross-cutting: Security / Governance / Quality / Lifecycle
+Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
+```
+
+#### OpenClaw 分层图 Prompt
+
+```text
+Use case: infographic-diagram
+Asset type: architecture diagram for a technical course
+Primary request: Create a layered architecture diagram titled "OpenClaw Harness Architecture".
+Style/medium: polished engineering infographic, clean white background, teal and orange accents, no mascot illustration.
+Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
+Text (verbatim):
+1. Experience & Gateway: Gateway WS / HTTP, Control UI, WebChat, CLI, macOS / iOS / Android nodes, messaging channels
+2. Agent Control Plane: agent bindings, session routing, plugin registry, skills gating, auth profiles, cron, ACP control plane
+3. Harness Runtime: Pi embedded runner, Pi agent loop, tool streaming, context engine, subagent session protocol
+4. Execution & Security Infrastructure: Docker / SSH / OpenShell sandbox, exec approval, filesystem bridge, browser sandbox, secrets
+5. Knowledge & Business Data: Markdown memory, memory plugin slot, context engine, web search, channel connectors, business tools
+6. Observability / Evaluation / Ops: gateway logs, diagnostic events, cache trace, usage / cost, OTel plugin, doctor, security audit
+Cross-cutting: Security / Governance / Quality / Lifecycle
+Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
+```
+
+#### Hermes Agent 分层图 Prompt
+
+```text
+Use case: infographic-diagram
+Asset type: architecture diagram for a technical course
+Primary request: Create a layered architecture diagram titled "Hermes Agent Harness Architecture".
+Style/medium: polished engineering infographic, clean white background, restrained gold and dark-blue accents, no mythological illustration.
+Composition/framing: six horizontal layers stacked top to bottom, plus a right-side vertical cross-cutting rail.
+Text (verbatim):
+1. Experience & Gateway: CLI / TUI, messaging gateway, Web dashboard, ACP adapter, OpenAI-format API server
+2. Agent Control Plane: toolsets, tool registry, MCP config, skills hub, plugins, model providers, cron, kanban workers
+3. Harness Runtime: conversation loop, tool executor, context compressor, memory manager, delegate subagents, auxiliary model
+4. Execution & Security Infrastructure: local / Docker / SSH / Singularity / Modal / Daytona / Vercel sandbox, approval, checkpoint, browser, computer use
+5. Knowledge & Business Data: skills, optional skills, state.db, FTS5 session search, memory providers, business connectors
+6. Observability / Evaluation / Ops: logs, usage / cost, trajectories, batch runner, trajectory compression, doctor, Langfuse plugin
+Cross-cutting: Security / Governance / Quality / Lifecycle
+Constraints: use exact text where possible; keep typography readable; avoid marketing style; no decorative gradients; no fictional modules.
+```
+
+### 四个 Harness 对比表
+
+| 维度 | Claude Code | Codex | OpenClaw | Hermes Agent | 本教学仓策略 |
+|---|---|---|---|---|---|
+| 体验入口 | TUI/REPL、slash commands、print/SDK、IDE bridge、remote/direct sessions | TUI/CLI、`exec`、app server、desktop/app、IDE extension、SDK | Gateway WS/HTTP、Control UI、WebChat、CLI、移动/桌面节点、多消息通道 | CLI/TUI、消息网关、Web dashboard、ACP adapter、OpenAI-format API server | 先稳定 CLI，再补 server/API/Web/IDE/channel |
+| 控制平面 | Tool/MCP/Skill/Plugin/Agent registry、权限模式、feature flags、task registry | config layering、permission profile、MCP servers、plugin marketplace、skill loader、hooks、agent roles | agent bindings、session routing、plugin registry、skills gating、auth profiles、cron、ACP | toolsets、tool registry、MCP config、skills hub、plugins、model providers、cron、kanban | 先把 registry、policy、queue、config 边界拆清楚 |
+| 运行时 | `query()` loop、StreamingToolExecutor、subagent/fork、skill runtime、compact、model fallback | turn loop、ToolRouter、streaming sampling、skill/plugin injection、auto compact、history manager | OpenClaw 负责 gateway/context/tools 装配，Pi core 负责 agent loop 和 tool loop | conversation loop、tool executor、context compressor、memory manager、delegate subagents | 先做最小可验证 loop，再逐步补 loading、subagent、streaming |
+| 工具 / MCP | MCP 是一等资产，支持多 transport、resources/prompts/tools 同步和 server-level permission | MCP client/server、ToolRouter 每 turn 生成 direct/deferred/hidden 工具 | Tool 很强，MCP 偏 `mcporter` 桥接，避免核心 runtime 被 MCP churn 牵动 | MCP 动态注册进工具表，支持 stdio/http/SSE、timeout、sampling | 明确区分 registry 和 runtime loading，先做 MCP client 生命周期 |
+| Skill / Plugin | skill 来自 managed/user/project/bundled/MCP/plugin；plugin 有 marketplace/cache/version | skill roots + plugin roots；plugin 可聚合 MCP/apps/hooks/skills | plugin slots 很强，skill 兼容 AgentSkills，支持 bundled/user/workspace/plugin skills | skills/optional-skills/Skills Hub，skill lifecycle 和自改进更突出 | Skill 提到 P1，先做 registry/runtime 注入边界，再补 lifecycle |
+| Subagent / Multi-agent | AgentTool、LocalAgentTask、forked agent、sidechain transcript、worktree isolation | multi_agents / multi_agents_v2、roles、parent/child trace reducer | multi-agent routing + `sessions_spawn`，有 depth/thread/sandbox 继承约束 | `delegate_task` + kanban durable worker，两条 subagent 线 | P2 做最小 spawn/wait/result/trace，权限默认收缩 |
+| 执行 / 沙箱 | sandbox-runtime adapter、Bash/PowerShell、worktree、权限 hooks | macOS/Linux/Windows sandbox、unified exec、exec-server、network proxy | Docker/SSH/OpenShell backend、browser sandbox、fs bridge、exec approval | local/Docker/SSH/Singularity/Modal/Daytona/Vercel Sandbox、approval、checkpoint | Phase 1 轻量工具级 sandbox，高风险工具 fail closed |
+| 上下文 / 记忆 | prompt-cache aware compact、session memory、auto memory、team memory sync | history/context manager、compact、rollout-derived memory、consolidation subagent | context engine 与 memory plugin 拆开，Markdown 是事实源，可检索 | state.db + FTS5、memory provider、context compression、session search | 先做 session/compact/handoff/memory extraction，再补检索与 memory provider |
+| 可观测 / 评测 | analytics、OTel/Perfetto、query profiler、cost/usage、doctor、VCR | rollout trace、trace reducer、OTel、doctor、state DB、测试 | gateway logs、diagnostic events、cache trace、usage/cost、OTel plugin、doctor/security audit | trajectory、batch runner、trajectory compression、doctor、Langfuse plugin | 保持 trace/audit/doctor/golden/eval 显式化，后续补 OTel/reducer |
+| 最强重心 | 产品级 coding harness，运行时、权限、MCP、subagent 很厚 | Rust 产品级 core，sandbox/exec/plugin/trace 边界清楚 | 多通道个人助理平台，gateway/control plane/device/channel 很厚 | 自学习 agent，skills/memory/subagent/多后端执行很强 | 课程化最小纵向切片，把成熟边界拆成可跑、可测、可讲的模块 |
+
+### 本教学仓的整体策略
+
+这个仓库的定位不是复刻某一个产品级 harness，而是把成熟系统中的共性边界拆成一组小而稳定的工程模块。每个模块都要同时满足三件事：
+
+1. **能运行**：不是概念图，至少有 CLI、代码路径、状态文件或测试入口。
+2. **能验证**：每章都有可复制命令，能通过 trace、doctor、golden case、pytest 或 live smoke 证明行为。
+3. **能对标**：每章都说明 Claude Code、Codex、OpenClaw、Hermes Agent 中对应模块在哪里，为什么它们更完整，我们为什么先实现当前范围。
+
+因此，教学仓采用“纵向最小切片 + 横向分层补齐”的路线。纵向切片保证系统始终可运行：`Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context / Session -> Trace / Audit / Eval`。横向补齐则逐步对齐产品级 harness 的控制面、runtime loading、skill/plugin、MCP、subagent、memory provider、OTel、server/API/Web/IDE/channel。
+
+这也是为什么文章和实现不会简单按第 1 层到第 6 层顺序瀑布推进。产品级 harness 的真实复杂度往往来自跨层交汇：工具注册在控制平面，工具加载在运行时，工具执行在安全基础设施，工具行为又要被 trace/audit/eval 记录。教学仓会把这些交汇点拆开讲清楚，而不是把所有能力塞进一个“大工具系统”章节。
+
 ### 实现优先级：先打通纵向主链
 
 架构图是横向分层，工程实现不能简单从第 1 层一路瀑布做到第 6 层。Harness 的价值来自一条纵向闭环：模型能思考，运行时能驱动，工具能行动，沙箱能约束，上下文能接力，日志评测能复盘。

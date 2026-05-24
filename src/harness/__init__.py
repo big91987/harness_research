@@ -16,6 +16,7 @@ __all__ = [
     "permissions",
     "schema",
     "scaffold",
+    "secrets",
     "session",
     "skills",
     "subagents",

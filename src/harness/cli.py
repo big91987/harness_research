@@ -25,6 +25,7 @@ from harness.runs import RunStatus, RunStore
 from harness.scaffold import scaffold_project
 from harness.schema import ModelResponse
 from harness.schema import ToolCall
+from harness.secrets import SecretStore, resolve_api_key
 from harness.session import JsonlSessionStore, Session, SessionBundle
 from harness.skills import SkillStore
 from harness.tasks import TaskStatus, TaskStore
@@ -47,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--trace")
     run.add_argument("--audit")
     run.add_argument("--artifact-dir")
+    run.add_argument("--secret-store")
     run.add_argument("--memory-dir")
     run.add_argument("--skill-dir")
     run.add_argument("--task-dir")
@@ -56,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--mcp-config")
     run.add_argument("--base-url")
     run.add_argument("--api-key")
+    run.add_argument("--api-key-secret")
     run.add_argument("--model")
     run.add_argument("--model-timeout-seconds", type=int)
     run.add_argument("--temperature", type=float)
@@ -105,6 +108,15 @@ def build_parser() -> argparse.ArgumentParser:
     mcp.add_argument("--args-json", default="{}", help="JSON object arguments for --call-tool.")
     mcp.add_argument("--json", action="store_true")
 
+    secrets = subparsers.add_parser("secrets", help="Manage local harness secrets.")
+    secrets.add_argument("--secret-store")
+    secrets.add_argument("--set")
+    secrets.add_argument("--value")
+    secrets.add_argument("--get")
+    secrets.add_argument("--delete")
+    secrets.add_argument("--list", action="store_true")
+    secrets.add_argument("--json", action="store_true")
+
     config_cmd = subparsers.add_parser("config", help="Show and validate merged harness config.")
     config_cmd.add_argument("--show", action="store_true")
     config_cmd.add_argument("--validate", action="store_true")
@@ -128,6 +140,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     memory = subparsers.add_parser("memory", help="Add or search local markdown memory.")
     memory.add_argument("--memory-dir")
+    memory.add_argument("--secret-store")
     memory.add_argument("--session-dir")
     memory.add_argument("--add")
     memory.add_argument("--search")
@@ -137,6 +150,7 @@ def build_parser() -> argparse.ArgumentParser:
     memory.add_argument("--max-items", type=int)
     memory.add_argument("--base-url")
     memory.add_argument("--api-key")
+    memory.add_argument("--api-key-secret")
     memory.add_argument("--model")
     memory.add_argument("--model-timeout-seconds", type=int)
     memory.add_argument("--temperature", type=float)
@@ -325,7 +339,7 @@ def build_kernel(args: argparse.Namespace) -> tuple[AgentKernel, Session]:
     else:
         model = OpenAICompatibleModelClient(
             base_url=_require(config.base_url, "--base-url, config base_url, or HARNESS_BASE_URL"),
-            api_key=_require(config.api_key, "--api-key, config api_key, or HARNESS_API_KEY"),
+            api_key=_require(resolve_api_key(config), "--api-key, --api-key-secret, config api_key, or HARNESS_API_KEY"),
             model=config.model,
             timeout_seconds=config.model_timeout_seconds,
             temperature=config.temperature,
@@ -385,6 +399,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "trace",
         "audit",
         "artifact_dir",
+        "secret_store",
         "memory_dir",
         "skill_dir",
         "task_dir",
@@ -393,6 +408,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "mcp_config",
         "base_url",
         "api_key",
+        "api_key_secret",
         "model",
         "model_timeout_seconds",
         "temperature",
@@ -856,6 +872,32 @@ def main(argv: list[str] | None = None) -> int:
                 for row in rows:
                     print(f"{row['server']}.{row['name']}: {row['description']}")
             return 0
+    if args.command == "secrets":
+        config = _merged_config(args)
+        store = SecretStore(config.secret_store)
+        if args.set:
+            if args.value is None:
+                raise SystemExit("--value is required with --set")
+            store.set(args.set, args.value)
+            print(f"stored: {args.set}")
+            return 0
+        if args.get:
+            value = store.get(args.get)
+            if value is None:
+                raise SystemExit(f"secret not found: {args.get}")
+            print(value)
+            return 0
+        if args.delete:
+            if not store.delete(args.delete):
+                raise SystemExit(f"secret not found: {args.delete}")
+            print(f"deleted: {args.delete}")
+            return 0
+        if args.json:
+            print(json.dumps(store.redacted_dict(), ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        for name in store.list_names():
+            print(name)
+        return 0
     if args.command == "config":
         config = _merged_config(args)
         issues = config.validate()
@@ -961,7 +1003,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 model = OpenAICompatibleModelClient(
                     base_url=_require(config.base_url, "--base-url, config base_url, or HARNESS_BASE_URL"),
-                    api_key=_require(config.api_key, "--api-key, config api_key, or HARNESS_API_KEY"),
+                    api_key=_require(resolve_api_key(config), "--api-key, --api-key-secret, config api_key, or HARNESS_API_KEY"),
                     model=config.model,
                     timeout_seconds=config.model_timeout_seconds,
                     temperature=config.temperature,

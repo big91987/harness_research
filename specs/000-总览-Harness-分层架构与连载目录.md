@@ -142,7 +142,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 4. Execution & Security Infrastructure | Browser / Computer Use | 未开始 | 预留给浏览器自动化和计算机使用工具，按策略必须走 sandbox/runner |
 | 4. Execution & Security Infrastructure | Network Policy | 未开始 | 目前未做网络域名/出口策略 |
 | 4. Execution & Security Infrastructure | Approval Runtime | 部分实现 | prompt approval 已有；集中式 approval service 未做 |
-| 4. Execution & Security Infrastructure | Secrets / Credentials | 未开始 | 目前依赖环境变量，未做 secrets vault |
+| 4. Execution & Security Infrastructure | Secrets / Credentials | 部分实现 | 本地 SecretStore、redacted list、api_key_secret 解析已有；Keychain/KMS、scope、rotation、tool-level injection 未做 |
 | 4. Execution & Security Infrastructure | Artifact Store | 已实现 | artifact register/query/verify、checkpoint artifact manifest |
 | 4. Execution & Security Infrastructure | Metadata Store | 部分实现 | JSONL/JSON 本地状态已有；统一 metadata store 未抽象 |
 | 4. Execution & Security Infrastructure | Event Bus | 未开始 | 当前没有独立事件总线 |

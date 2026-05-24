@@ -11,6 +11,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "workspace": "ws",
           "session_dir": "sessions",
           "trace": "trace.jsonl",
+          "secret_store": "secrets.json",
           "memory_dir": "memory",
           "skill_dir": "skills",
           "task_dir": "tasks",
@@ -19,6 +20,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "mcp_config": "mcp.json",
           "base_url": "https://config.example.com",
           "api_key": "from-config",
+          "api_key_secret": "model-key",
           "model": "config-model",
           "model_timeout_seconds": 9,
           "temperature": 0.2,
@@ -51,6 +53,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     config = HarnessConfig.load(config_path)
 
     assert config.workspace == "ws"
+    assert config.secret_store == "secrets.json"
     assert config.skill_dir == "skills"
     assert config.task_dir == "tasks"
     assert config.run_dir == "runs"
@@ -60,6 +63,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     assert config.model_timeout_seconds == 11
     assert config.temperature == 0.3
     assert config.top_p == 0.9
+    assert config.api_key_secret == "model-key"
     assert config.max_tokens == 512
     assert config.permission == "workspace-write"
     assert config.tool_profile == "coding"
@@ -86,6 +90,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_MAX_TOTAL_TOKENS", "42")
     monkeypatch.setenv("HARNESS_MAX_COST_USD", "0.25")
     monkeypatch.setenv("HARNESS_SKILL_DIR", "env-skills")
+    monkeypatch.setenv("HARNESS_SECRET_STORE", "env-secrets.json")
     monkeypatch.setenv("HARNESS_TASK_DIR", "env-tasks")
     monkeypatch.setenv("HARNESS_RUN_DIR", "env-runs")
     monkeypatch.setenv("HARNESS_HOOK_CONFIG", "env-hooks.json")
@@ -97,6 +102,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_SANDBOX_RUNNER", "python3 /tmp/env-runner.py")
     monkeypatch.setenv("HARNESS_TOOL_PROFILE", "safe")
     monkeypatch.setenv("HARNESS_FAIL_FAST_ON_TOOL_ERROR", "true")
+    monkeypatch.setenv("HARNESS_API_KEY_SECRET", "env-model-key")
 
     config = HarnessConfig.load()
 
@@ -105,6 +111,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.max_total_tokens == 42
     assert config.max_cost_usd == 0.25
     assert config.skill_dir == "env-skills"
+    assert config.secret_store == "env-secrets.json"
     assert config.task_dir == "env-tasks"
     assert config.run_dir == "env-runs"
     assert config.hook_config == "env-hooks.json"
@@ -116,6 +123,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.sandbox_runner == "python3 /tmp/env-runner.py"
     assert config.tool_profile == "safe"
     assert config.fail_fast_on_tool_error is True
+    assert config.api_key_secret == "env-model-key"
 
 
 def test_config_validate_reports_errors_and_warnings() -> None:

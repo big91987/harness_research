@@ -30,6 +30,7 @@ Implemented modules:
 - `harness.mcp`: Claude/Codex-style `mcpServers` config loading, stdio MCP `initialize` / `tools/list` / `tools/call`, and explicit runtime loading into namespaced MCP tools.
 - `harness.sandbox_runner`: stdin/stdout JSON runner entry point for high-risk local execution tools; Phase 1 uses macOS `sandbox-exec` for local bash and Python execution, permits writes only inside the workspace, blocks common host-sensitive reads, and fails closed when the sandbox is unavailable.
 - `harness.permissions`: read-only, workspace-write, danger, and prompt policy modes.
+- `harness.secrets`: local chmod-600 secret store and `api_key_secret` resolution for model credentials.
 - `harness.workspace`: workspace path containment.
 - Tool profiles and sandboxing: `safe` exposes read-only inspection tools, `coding` exposes the local coding tool surface; filesystem/search tools are guarded by workspace-scoped parameters, while high-risk execution tools such as `bash` and `python` require a configured sandbox runner and fail closed when it is missing. The built-in runner additionally strips the parent environment, blocks writes outside the workspace, and denies reads from common sensitive host paths through the host macOS sandbox.
 - `harness.session`: JSONL session persistence.
@@ -834,6 +835,18 @@ PYTHONPATH=src python3 -m harness.cli run "list files" \
 ```
 
 Do not commit API keys. Keep credentials in environment variables.
+
+For local development, store model credentials by name and reference them from
+config or CLI:
+
+```bash
+PYTHONPATH=src python3 -m harness.cli secrets --set model-key --value "$HARNESS_API_KEY"
+
+PYTHONPATH=src python3 -m harness.cli run "list files" \
+  --api-key-secret model-key \
+  --base-url "$HARNESS_BASE_URL" \
+  --model "$HARNESS_MODEL"
+```
 
 ## Next Server Phase
 

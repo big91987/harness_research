@@ -21,6 +21,7 @@ class HarnessConfig:
     trace: str = ".harness/trace.jsonl"
     audit: str = ".harness/audit.jsonl"
     artifact_dir: str = ".harness/artifacts"
+    secret_store: str = ".harness/secrets.json"
     memory_dir: str = ".harness/memory"
     skill_dir: str = ".harness/skills"
     task_dir: str = ".harness/tasks"
@@ -29,6 +30,7 @@ class HarnessConfig:
     mcp_config: str | None = None
     base_url: str | None = None
     api_key: str | None = None
+    api_key_secret: str | None = None
     model: str = "gpt-4.1-mini"
     model_timeout_seconds: int = 120
     temperature: float | None = None
@@ -69,6 +71,7 @@ class HarnessConfig:
             "HARNESS_TRACE": "trace",
             "HARNESS_AUDIT": "audit",
             "HARNESS_ARTIFACT_DIR": "artifact_dir",
+            "HARNESS_SECRET_STORE": "secret_store",
             "HARNESS_MEMORY_DIR": "memory_dir",
             "HARNESS_SKILL_DIR": "skill_dir",
             "HARNESS_TASK_DIR": "task_dir",
@@ -79,6 +82,7 @@ class HarnessConfig:
             "OPENAI_BASE_URL": "base_url",
             "HARNESS_API_KEY": "api_key",
             "OPENAI_API_KEY": "api_key",
+            "HARNESS_API_KEY_SECRET": "api_key_secret",
             "HARNESS_MODEL": "model",
             "HARNESS_MODEL_TIMEOUT_SECONDS": "model_timeout_seconds",
             "HARNESS_TEMPERATURE": "temperature",

@@ -148,6 +148,7 @@ def build_parser() -> argparse.ArgumentParser:
     runs = subparsers.add_parser("runs", help="List and show local harness run records.")
     runs.add_argument("--run-dir")
     runs.add_argument("--enqueue")
+    runs.add_argument("--run-next", action="store_true")
     runs.add_argument("--workspace")
     runs.add_argument("--task-id")
     runs.add_argument("--cancel")
@@ -157,6 +158,11 @@ def build_parser() -> argparse.ArgumentParser:
     runs.add_argument("--session-dir")
     runs.add_argument("--trace")
     runs.add_argument("--audit")
+    runs.add_argument("--mock-final")
+    runs.add_argument("--mock-responses")
+    runs.add_argument("--permission", choices=[mode.value for mode in PermissionMode])
+    runs.add_argument("--tool-profile", choices=["safe", "coding"])
+    runs.add_argument("--max-iterations", type=int)
     runs.add_argument("--status", choices=[status.value for status in RunStatus])
     runs.add_argument("--session")
     runs.add_argument("--limit", type=int)
@@ -505,6 +511,36 @@ def _run_record_dict(record) -> dict:  # noqa: ANN001 - CLI stays decoupled from
     else:
         data["duration_seconds"] = None
     return data
+
+
+def _prepare_worker_run_args(args: argparse.Namespace, record) -> None:  # noqa: ANN001
+    args.prompt = record.prompt
+    args.workspace = record.workspace
+    args.session = None
+    args.task_id = record.task_id
+    for name, value in {
+        "base_url": None,
+        "api_key": None,
+        "model": None,
+        "model_timeout_seconds": None,
+        "temperature": None,
+        "top_p": None,
+        "max_tokens": None,
+        "allowed_tools": None,
+        "denied_tools": None,
+        "max_model_retries": None,
+        "max_total_tokens": None,
+        "max_cost_usd": None,
+        "sandbox_runner": None,
+        "fail_fast_on_tool_error": None,
+        "artifact_dir": None,
+        "memory_dir": None,
+        "skill_dir": None,
+        "task_dir": None,
+        "hook_config": None,
+    }.items():
+        if not hasattr(args, name):
+            setattr(args, name, value)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -890,6 +926,53 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             print(f"cancelled: {record.id}")
             return 0
+        if args.run_next:
+            pending = runs.list(status=RunStatus.PENDING, limit=1)
+            if not pending:
+                raise SystemExit("no pending runs")
+            record = pending[0]
+            _prepare_worker_run_args(args, record)
+            kernel, session = build_kernel(args)
+            runs.start(record.id, session_id=session.id)
+            task_store = TaskStore(config.task_dir) if record.task_id else None
+            if record.task_id and task_store is not None:
+                task_store.update(record.task_id, status=TaskStatus.IN_PROGRESS, session_id=session.id)
+            result = kernel.run_turn(session, record.prompt)
+            completed = runs.finish(
+                record.id,
+                status=RunStatus.SUCCEEDED if result.stop_reason == "final_answer" else RunStatus.FAILED,
+                session_id=result.session_id,
+                turn_id=result.turn_id,
+                stop_reason=result.stop_reason,
+                iterations=result.iterations,
+            )
+            if record.task_id and task_store is not None:
+                task_store.update(
+                    record.task_id,
+                    status=TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED,
+                    session_id=result.session_id,
+                    metadata={
+                        "last_stop_reason": result.stop_reason,
+                        "last_iterations": str(result.iterations),
+                    },
+                )
+            payload = {
+                "final_text": result.final_text,
+                "run_id": completed.id,
+                "session_id": result.session_id,
+                "turn_id": result.turn_id,
+                "iterations": result.iterations,
+                "stop_reason": result.stop_reason,
+                "status": completed.status,
+            }
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(result.final_text)
+                print(f"\nrun: {completed.id}")
+                print(f"session: {result.session_id}")
+                print(f"stop_reason: {result.stop_reason}")
+            return 0 if result.stop_reason == "final_answer" else 2
         if args.diagnose:
             try:
                 record = runs.load(args.diagnose)

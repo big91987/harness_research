@@ -763,6 +763,83 @@ def test_cli_runs_can_enqueue_and_cancel(tmp_path: Path) -> None:
     assert payload["metadata"]["cancel_reason"] == "not needed"
 
 
+def test_cli_runs_can_run_next_pending_record(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    enqueue = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--enqueue",
+            "queued prompt",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    run_id = json.loads(enqueue.stdout)["id"]
+
+    executed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--run-next",
+            "--mock-final",
+            "queued-ok",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(executed.stdout)
+
+    assert payload["run_id"] == run_id
+    assert payload["status"] == "succeeded"
+    assert payload["final_text"] == "queued-ok"
+    assert payload["session_id"]
+    assert payload["turn_id"]
+
+    listing = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--status",
+            "succeeded",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    records = json.loads(listing.stdout)
+    assert records[0]["id"] == run_id
+    assert records[0]["stop_reason"] == "final_answer"
+
+
 def test_cli_runs_diagnose_summarizes_failed_run(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs"
     trace = tmp_path / "trace.jsonl"

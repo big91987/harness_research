@@ -503,6 +503,14 @@ PYTHONPATH=src python3 -m harness.cli runs \
 
 PYTHONPATH=src python3 -m harness.cli runs \
   --run-dir /tmp/harness-runs \
+  --session-dir /tmp/harness-sessions \
+  --trace /tmp/harness-trace.jsonl \
+  --audit /tmp/harness-audit.jsonl \
+  --run-next \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
   --status failed \
   --json
 
@@ -526,6 +534,9 @@ iteration count, status, and duration, giving future server or worker code a
 stable local run ledger instead of reconstructing runs from trace files.
 Pending and cancelled records give future local workers and server APIs a stable
 queue-state vocabulary before a network server exists.
+`runs --run-next` is the minimal local worker: it claims the oldest pending run,
+executes it through the same kernel/session/trace/audit path as `run`, and then
+marks the record `succeeded` or `failed`.
 `runs --diagnose` joins the run record with session state plus trace/audit
 summaries for the same turn, which is the local failure-replay surface before a
 server UI exists.

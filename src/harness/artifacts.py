@@ -7,6 +7,8 @@ from pathlib import Path
 from time import time
 from uuid import uuid4
 
+from harness.storage import file_lock, locked_append_text
+
 
 @dataclass(frozen=True)
 class Artifact:
@@ -24,6 +26,7 @@ class ArtifactStore:
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         self.index_path = self.root / "artifacts.jsonl"
+        self.lock_path = self.root / "artifacts.lock"
 
     def register_file(
         self,
@@ -45,18 +48,18 @@ class ArtifactStore:
             sha256=_sha256(file_path),
             created_at=time(),
         )
-        with self.index_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(asdict(artifact), ensure_ascii=False, sort_keys=True) + "\n")
+        locked_append_text(self.index_path, json.dumps(asdict(artifact), ensure_ascii=False, sort_keys=True) + "\n")
         return artifact
 
     def list(self) -> list[Artifact]:
         if not self.index_path.exists():
             return []
         artifacts: list[Artifact] = []
-        with self.index_path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    artifacts.append(Artifact(**json.loads(line)))
+        with file_lock(self.lock_path):
+            with self.index_path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        artifacts.append(Artifact(**json.loads(line)))
         return artifacts
 
     def get(self, artifact_id: str) -> Artifact | None:

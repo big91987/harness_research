@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from harness.cost import canonical_usage
-from harness.storage import atomic_write_text
+from harness.storage import atomic_write_text, file_lock
 from harness.trace import TraceRecorder
 
 
@@ -43,21 +43,25 @@ class EvalSuiteStore:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).expanduser().resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.lock_path = self.path.with_name(f"{self.path.name}.lock")
         if not self.path.exists():
-            self._write({"cases": []})
+            with file_lock(self.lock_path):
+                if not self.path.exists():
+                    self._write_unlocked({"cases": []})
 
     def add_case(self, name: str, *, trace: str, expect: dict) -> dict:
-        data = self._read()
-        cases = [case for case in data.get("cases", []) if case.get("name") != name]
-        case = {
-            "name": name,
-            "trace": trace,
-            "expect": expect,
-        }
-        cases.append(case)
-        data["cases"] = cases
-        self._write(data)
-        return case
+        with file_lock(self.lock_path):
+            data = self._read_unlocked()
+            cases = [case for case in data.get("cases", []) if case.get("name") != name]
+            case = {
+                "name": name,
+                "trace": trace,
+                "expect": expect,
+            }
+            cases.append(case)
+            data["cases"] = cases
+            self._write_unlocked(data)
+            return case
 
     def add_case_from_trace(self, name: str, *, trace: str | Path) -> dict:
         trace_path = Path(trace).expanduser().resolve()
@@ -65,15 +69,16 @@ class EvalSuiteStore:
         return self.add_case(name, trace=str(trace), expect=expect)
 
     def list_cases(self) -> list[dict]:
-        return list(self._read().get("cases", []))
+        with file_lock(self.lock_path):
+            return list(self._read_unlocked().get("cases", []))
 
     def run(self) -> GoldenSuiteReport:
         return run_golden_suite(self.path)
 
-    def _read(self) -> dict:
+    def _read_unlocked(self) -> dict:
         return json.loads(self.path.read_text(encoding="utf-8"))
 
-    def _write(self, data: dict) -> None:
+    def _write_unlocked(self, data: dict) -> None:
         atomic_write_text(self.path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
 

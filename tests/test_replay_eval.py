@@ -86,6 +86,34 @@ def test_eval_suite_can_add_case_from_trace(tmp_path: Path) -> None:
     assert suite.run().passed
 
 
+def test_eval_suite_store_serializes_concurrent_adds(tmp_path: Path) -> None:
+    suite = tmp_path / "golden.json"
+    script = """
+from harness.eval import EvalSuiteStore
+import sys
+
+EvalSuiteStore(sys.argv[1]).add_case(sys.argv[2], trace=sys.argv[3], expect={"stop_reason": "final_answer"})
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(suite), f"case-{index}", f"trace-{index}.jsonl"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(8)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    cases = EvalSuiteStore(suite).list_cases()
+
+    assert {case["name"] for case in cases} == {f"case-{index}" for index in range(8)}
+
+
 def test_cli_eval_suite_add_from_trace(tmp_path: Path) -> None:
     trace_path = tmp_path / "trace.jsonl"
     trace = TraceRecorder(trace_path)

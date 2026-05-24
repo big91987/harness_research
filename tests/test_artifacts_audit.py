@@ -63,6 +63,38 @@ def test_artifact_store_verify_all_reports_changed_and_missing(tmp_path: Path) -
     assert by_id[missing_artifact.id]["status"] == "missing"
 
 
+def test_artifact_store_serializes_concurrent_registers(tmp_path: Path) -> None:
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    artifacts = tmp_path / "artifacts"
+    for index in range(8):
+        (workspace / f"out-{index}.txt").write_text(f"ok-{index}", encoding="utf-8")
+    script = """
+from harness.artifacts import ArtifactStore
+import sys
+
+ArtifactStore(sys.argv[1]).register_file(sys.argv[2], workspace_root=sys.argv[3], kind="output")
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(artifacts), str(workspace / f"out-{index}.txt"), str(workspace)],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(8)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    registered = ArtifactStore(artifacts).list()
+
+    assert {artifact.relative_path for artifact in registered} == {f"out-{index}.txt" for index in range(8)}
+
+
 def test_audit_log_records_jsonl_events(tmp_path: Path) -> None:
     audit = AuditLog(tmp_path / "audit.jsonl")
 

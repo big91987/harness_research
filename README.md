@@ -394,6 +394,7 @@ PYTHONPATH=src python3 -m harness.cli audit --audit /tmp/harness-audit.jsonl
 PYTHONPATH=src python3 -m harness.cli audit \
   --audit /tmp/harness-audit.jsonl \
   --session <session-id> \
+  --turn <turn-id> \
   --type tool_call \
   --allowed false \
   --json

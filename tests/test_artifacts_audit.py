@@ -76,15 +76,16 @@ def test_audit_log_records_jsonl_events(tmp_path: Path) -> None:
 
 def test_audit_query_filters_events(tmp_path: Path) -> None:
     audit = AuditLog(tmp_path / "audit.jsonl")
-    audit.record("tool_call", session_id="s1", actor="agent", action="read_file", allowed=True)
-    audit.record("tool_call", session_id="s2", actor="agent", action="bash", allowed=False)
-    audit.record("approval", session_id="s2", actor="user", action="bash", allowed=False)
+    audit.record("tool_call", session_id="s1", turn_id="t1", actor="agent", action="read_file", allowed=True)
+    audit.record("tool_call", session_id="s2", turn_id="t1", actor="agent", action="bash", allowed=False)
+    audit.record("approval", session_id="s2", turn_id="t2", actor="user", action="bash", allowed=False)
 
-    events = AuditQuery(audit).events(session_id="s2", action="bash", allowed=False, limit=1)
+    events = AuditQuery(audit).events(session_id="s2", turn_id="t2", action="bash", allowed=False, limit=1)
 
     assert len(events) == 1
     assert events[0]["type"] == "approval"
     assert events[0]["session_id"] == "s2"
+    assert events[0]["turn_id"] == "t2"
 
 
 def test_audit_query_summarizes_events(tmp_path: Path) -> None:
@@ -188,7 +189,11 @@ def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
     assert '"status": "changed"' in verify_all.stdout
 
     audit_path = tmp_path / "audit.jsonl"
-    audit_path.write_text(json.dumps({"type": "tool_call", "action": "read_file"}) + "\n", encoding="utf-8")
+    audit_path.write_text(
+        json.dumps({"type": "tool_call", "action": "read_file", "turn_id": "t1"}) + "\n"
+        + json.dumps({"type": "tool_call", "action": "bash", "turn_id": "t2"}) + "\n",
+        encoding="utf-8",
+    )
     audit = subprocess.run(
         [sys.executable, "-m", "harness.cli", "audit", "--audit", str(audit_path)],
         check=True,
@@ -208,6 +213,8 @@ def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
             str(audit_path),
             "--type",
             "tool_call",
+            "--turn",
+            "t1",
             "--json",
         ],
         check=True,
@@ -216,6 +223,8 @@ def test_cli_artifacts_and_audit_smoke(tmp_path: Path) -> None:
         env={**os.environ, "PYTHONPATH": "src"},
     )
     assert '"type": "tool_call"' in audit_json.stdout
+    assert '"turn_id": "t1"' in audit_json.stdout
+    assert '"turn_id": "t2"' not in audit_json.stdout
 
 
 def test_cli_audit_summary(tmp_path: Path) -> None:

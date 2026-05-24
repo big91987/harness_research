@@ -38,6 +38,7 @@ class AuditQuery:
         self,
         *,
         session_id: str | None = None,
+        turn_id: str | None = None,
         event_type: str | None = None,
         action: str | None = None,
         allowed: bool | None = None,
@@ -46,6 +47,8 @@ class AuditQuery:
         events = self.audit.read_events()
         if session_id is not None:
             events = [event for event in events if event.get("session_id") == session_id]
+        if turn_id is not None:
+            events = [event for event in events if event.get("turn_id") == turn_id]
         if event_type is not None:
             events = [event for event in events if event.get("type") == event_type]
         if action is not None:
@@ -60,11 +63,18 @@ class AuditQuery:
         self,
         *,
         session_id: str | None = None,
+        turn_id: str | None = None,
         event_type: str | None = None,
         action: str | None = None,
         allowed: bool | None = None,
     ) -> dict[str, Any]:
-        events = self.events(session_id=session_id, event_type=event_type, action=action, allowed=allowed)
+        events = self.events(
+            session_id=session_id,
+            turn_id=turn_id,
+            event_type=event_type,
+            action=action,
+            allowed=allowed,
+        )
         by_type: dict[str, int] = {}
         by_action: dict[str, int] = {}
         allowed_count = 0

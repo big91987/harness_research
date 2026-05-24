@@ -193,6 +193,7 @@ def build_parser() -> argparse.ArgumentParser:
     audit = subparsers.add_parser("audit", help="Print audit JSONL events.")
     audit.add_argument("--audit")
     audit.add_argument("--session")
+    audit.add_argument("--turn")
     audit.add_argument("--type", dest="event_type")
     audit.add_argument("--action")
     audit.add_argument("--allowed", choices=["true", "false"])
@@ -935,6 +936,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.summary:
             summary = query.summary(
                 session_id=args.session,
+                turn_id=args.turn,
                 event_type=args.event_type,
                 action=args.action,
                 allowed=allowed,
@@ -952,6 +954,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         events = query.events(
             session_id=args.session,
+            turn_id=args.turn,
             event_type=args.event_type,
             action=args.action,
             allowed=allowed,

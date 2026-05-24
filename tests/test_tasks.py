@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+import subprocess
+import sys
 
 from harness.tasks import TaskStatus, TaskStore
 
@@ -83,3 +86,34 @@ def test_task_store_history_survives_reload(tmp_path: Path) -> None:
     assert len(history) == 2
     assert history[0]["type"] == "created"
     assert history[1]["changes"]["status"] == "blocked"
+
+
+def test_task_store_serializes_concurrent_updates(tmp_path: Path) -> None:
+    store = TaskStore(tmp_path)
+    task = store.create("ship harness")
+    script = """
+from harness.tasks import TaskStore
+import sys
+
+store = TaskStore(sys.argv[1])
+store.update(sys.argv[2], metadata={sys.argv[3]: sys.argv[4]})
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(tmp_path), task.id, f"k{index}", f"v{index}"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(8)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    updated = store.load(task.id)
+
+    assert updated.metadata == {f"k{index}": f"v{index}" for index in range(8)}
+    assert len([event for event in updated.history if event["type"] == "updated"]) == 8

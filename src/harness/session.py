@@ -7,7 +7,7 @@ from time import time
 from uuid import uuid4
 
 from harness.schema import Message
-from harness.storage import atomic_write_text
+from harness.storage import atomic_write_text, file_lock
 
 
 @dataclass
@@ -60,21 +60,26 @@ class JsonlSessionStore:
     def path_for(self, session_id: str) -> Path:
         return self.root / f"{session_id}.jsonl"
 
+    def lock_path_for(self, session_id: str) -> Path:
+        return self.root / f"{session_id}.lock"
+
     def save(self, session: Session) -> None:
         session.updated_at = time()
         path = self.path_for(session.id)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(session.to_dict(), ensure_ascii=False) + "\n")
+        with file_lock(self.lock_path_for(session.id)):
+            with path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(session.to_dict(), ensure_ascii=False) + "\n")
 
     def load(self, session_id: str) -> Session | None:
         path = self.path_for(session_id)
         if not path.exists():
             return None
         last = ""
-        with path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    last = line
+        with file_lock(self.lock_path_for(session_id)):
+            with path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        last = line
         if not last:
             return None
         return Session.from_dict(json.loads(last))
@@ -84,10 +89,11 @@ class JsonlSessionStore:
         if not path.exists():
             return []
         snapshots: list[Session] = []
-        with path.open(encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    snapshots.append(Session.from_dict(json.loads(line)))
+        with file_lock(self.lock_path_for(session_id)):
+            with path.open(encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        snapshots.append(Session.from_dict(json.loads(line)))
         return snapshots
 
     def list(self) -> list[str]:

@@ -7,7 +7,7 @@ from pathlib import Path
 from time import time
 from uuid import uuid4
 
-from harness.storage import atomic_write_text
+from harness.storage import atomic_write_text, file_lock
 
 
 class TaskStatus(str, Enum):
@@ -52,8 +52,11 @@ class TaskStore:
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / "tasks.json"
+        self.lock_path = self.root / "tasks.lock"
         if not self.path.exists():
-            self._write({})
+            with file_lock(self.lock_path):
+                if not self.path.exists():
+                    self._write_unlocked({})
 
     def create(self, title: str, *, description: str = "", metadata: dict[str, str] | None = None) -> Task:
         task = Task(
@@ -75,20 +78,23 @@ class TaskStore:
                 },
             }
         )
-        tasks = self._read()
-        tasks[task.id] = task
-        self._write(tasks)
+        with file_lock(self.lock_path):
+            tasks = self._read_unlocked()
+            tasks[task.id] = task
+            self._write_unlocked(tasks)
         return task
 
     def load(self, task_id: str) -> Task:
-        tasks = self._read()
+        with file_lock(self.lock_path):
+            tasks = self._read_unlocked()
         try:
             return tasks[task_id]
         except KeyError as exc:
             raise KeyError(f"task not found: {task_id}") from exc
 
     def list(self, *, status: TaskStatus | str | None = None, session_id: str | None = None) -> list[Task]:
-        tasks = sorted(self._read().values(), key=lambda task: (task.created_at, task.id))
+        with file_lock(self.lock_path):
+            tasks = sorted(self._read_unlocked().values(), key=lambda task: (task.created_at, task.id))
         if status is not None:
             status_value = _status_value(status)
             tasks = [task for task in tasks if task.status == status_value]
@@ -97,11 +103,12 @@ class TaskStore:
         return tasks
 
     def delete(self, task_id: str) -> bool:
-        tasks = self._read()
-        if task_id not in tasks:
-            return False
-        del tasks[task_id]
-        self._write(tasks)
+        with file_lock(self.lock_path):
+            tasks = self._read_unlocked()
+            if task_id not in tasks:
+                return False
+            del tasks[task_id]
+            self._write_unlocked(tasks)
         return True
 
     def history(self, task_id: str) -> list[dict]:
@@ -117,32 +124,33 @@ class TaskStore:
         session_id: str | None = None,
         metadata: dict[str, str] | None = None,
     ) -> Task:
-        tasks = self._read()
-        if task_id not in tasks:
-            raise KeyError(f"task not found: {task_id}")
-        task = tasks[task_id]
-        changes: dict[str, object] = {}
-        if title is not None:
-            task.title = title.strip()
-            changes["title"] = task.title
-        if description is not None:
-            task.description = description.strip()
-            changes["description"] = task.description
-        if status is not None:
-            task.status = _status_value(status)
-            changes["status"] = task.status
-        if session_id is not None:
-            task.session_id = session_id
-            changes["session_id"] = session_id
-        if metadata is not None:
-            task.metadata.update(metadata)
-            changes["metadata"] = dict(metadata)
-        task.updated_at = time()
-        if changes:
-            task.history.append({"ts": task.updated_at, "type": "updated", "changes": changes})
-        tasks[task_id] = task
-        self._write(tasks)
-        return task
+        with file_lock(self.lock_path):
+            tasks = self._read_unlocked()
+            if task_id not in tasks:
+                raise KeyError(f"task not found: {task_id}")
+            task = tasks[task_id]
+            changes: dict[str, object] = {}
+            if title is not None:
+                task.title = title.strip()
+                changes["title"] = task.title
+            if description is not None:
+                task.description = description.strip()
+                changes["description"] = task.description
+            if status is not None:
+                task.status = _status_value(status)
+                changes["status"] = task.status
+            if session_id is not None:
+                task.session_id = session_id
+                changes["session_id"] = session_id
+            if metadata is not None:
+                task.metadata.update(metadata)
+                changes["metadata"] = dict(metadata)
+            task.updated_at = time()
+            if changes:
+                task.history.append({"ts": task.updated_at, "type": "updated", "changes": changes})
+            tasks[task_id] = task
+            self._write_unlocked(tasks)
+            return task
 
     def render_context(self, task_id: str) -> str:
         task = self.load(task_id)
@@ -158,11 +166,11 @@ class TaskStore:
             lines.append(f"- session: {task.session_id}")
         return "\n".join(lines)
 
-    def _read(self) -> dict[str, Task]:
+    def _read_unlocked(self) -> dict[str, Task]:
         data = json.loads(self.path.read_text(encoding="utf-8"))
         return {task_id: Task.from_dict(item) for task_id, item in data.items()}
 
-    def _write(self, tasks: dict[str, Task]) -> None:
+    def _write_unlocked(self, tasks: dict[str, Task]) -> None:
         data = {task_id: task.to_dict() for task_id, task in tasks.items()}
         atomic_write_text(self.path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 

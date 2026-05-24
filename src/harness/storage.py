@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import contextlib
+import fcntl
 from pathlib import Path
+from typing import Iterator
 from uuid import uuid4
 
 
@@ -15,3 +18,15 @@ def atomic_write_text(path: str | Path, text: str, *, encoding: str = "utf-8") -
         if temp.exists():
             temp.unlink()
     return target
+
+
+@contextlib.contextmanager
+def file_lock(path: str | Path) -> Iterator[Path]:
+    lock_path = Path(path).expanduser().resolve()
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            yield lock_path
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)

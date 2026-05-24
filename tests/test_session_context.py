@@ -53,6 +53,40 @@ def test_jsonl_session_store_loads_history(tmp_path: Path) -> None:
     assert [len(snapshot.messages) for snapshot in history] == [1, 2]
 
 
+def test_jsonl_session_store_serializes_concurrent_saves(tmp_path: Path) -> None:
+    session_dir = tmp_path / "sessions"
+    session_id = "shared"
+    script = """
+from harness.schema import Message
+from harness.session import JsonlSessionStore, Session
+import sys
+
+store = JsonlSessionStore(sys.argv[1])
+session = Session(id=sys.argv[2], workspace=sys.argv[3], messages=[Message.user(sys.argv[4])])
+store.save(session)
+"""
+
+    processes = [
+        subprocess.Popen(
+            [sys.executable, "-c", script, str(session_dir), session_id, str(tmp_path / "ws"), f"msg-{index}"],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(8)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    lines = (session_dir / f"{session_id}.jsonl").read_text(encoding="utf-8").splitlines()
+    payloads = [json.loads(line) for line in lines]
+
+    assert len(payloads) == 8
+    assert {payload["messages"][0]["content"] for payload in payloads} == {f"msg-{index}" for index in range(8)}
+
+
 def test_session_bundle_exports_and_imports_session(tmp_path: Path) -> None:
     source = JsonlSessionStore(tmp_path / "source")
     target = JsonlSessionStore(tmp_path / "target")

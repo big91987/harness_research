@@ -31,24 +31,27 @@
 Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context / Session -> Trace / Audit / Eval
 ```
 
-这条链打通后，Harness 才不是空壳。Web UI、Workflow、多 Agent、Vector DB、业务系统连接都可以后补；但 Agent Loop、工具执行、安全边界、上下文管理、可观测这几块不能太晚。
+这条链打通后，Harness 才不是空壳。Web UI、Vector DB、业务系统连接可以后补；但 Agent Loop、工具执行、MCP/Tool Registry、Skill Registry、安全边界、上下文管理、可观测这几块不能太晚。Subagent / Multi-agent 不属于最小单体闭环，但它是从单 Agent 走向组织化 Agent 的关键扩展线，应该在控制平面、权限和 trace 稳定后尽早进入。
 
 | 优先级 | 层 / 模块 | 为什么重要 | 最小可用标准 |
 |---:|---|---|---|
 | P0 | Harness Runtime: Agent Loop / Executor / Tool Orchestration | Harness 的心脏。没有 loop、执行器、工具调用，其他都是壳。 | 模型能连续对话、能发起工具调用、工具结果能回填给模型 |
 | P0 | Execution & Security: Workspace / Filesystem / Shell Runner / Sandbox Policy | Agent 必须能行动，但行动必须有边界。文件、shell、sandbox 是 coding/research agent 的基本身体。 | 文件操作有 path guard；shell/code/browser 这类高风险工具必须进 sandbox，失败 fail closed |
 | P0 | Harness Runtime: Model Gateway / Router | Agent 本质还是模型。模型调用、重试、usage、错误处理不稳，整个 harness 都不稳。 | 支持 OpenAI-compatible；能解析 tool call；有 timeout/retry/usage/cost |
+| P1 | Agent Control Plane: Tool / MCP Registry | MCP 和工具注册表是 harness 的能力入口。没有统一注册、描述、权限和 profile，工具越多越不可控。 | 工具有 schema/metadata/profile；MCP adapter 有清晰边界；高风险工具自动进入 sandbox 策略 |
+| P1 | Agent Control Plane: Skill / Plugin Registry | Skill 是经验、流程和工具使用方式的可复用单元，比普通 memory 更接近“能力包”。它会直接影响 Agent 能不能少走弯路。 | skill 可注册、检索、按任务注入；skill 不继承旧任务权限；后续能演进到 plugin 生命周期 |
 | P1 | Harness Runtime: Context Manager / Context Budget / Compact | 长程任务的关键。单轮能跑不难，跑久不断片才是 harness 价值。 | session history、resume、压缩、handoff、active task context |
 | P1 | Agent Control Plane: Policy & Permission / Human Approval | 工具越强，权限越重要。尤其企业场景，没有治理就不可能上线。 | 工具分级、permission mode、审批、拒绝审计、越权 fail closed |
 | P1 | Observability / Evaluation / Ops: Trace / Logs / Audit / Replay / Doctor | 没有可观测，就无法调试 Agent 为什么乱跑、卡住、花钱、越权。 | 每次 run 有 trace/audit；能 query；能 doctor；能 replay/debug |
 | P2 | Agent Control Plane: Scheduler / Queue / Run Ledger | 从单次交互走向任务系统的关键。异步、后台、失败恢复都靠它。 | run 可入队、执行、失败记录、诊断、恢复 session |
-| P2 | Harness Runtime: Memory Manager / Skill Registry | 让 Agent 越用越聪明。但它必须建立在稳定 runtime/context 之上。 | Markdown memory、session extraction、skill search/injection |
+| P2 | Harness Runtime: Memory Manager | 让 Agent 越用越聪明。但它必须建立在稳定 runtime/context/skill 注入之上。 | Markdown memory、session extraction、memory lock、memory 与 skill 的边界可追踪 |
+| P2 | Harness Runtime / Control Plane: Multi-agent / Subagent | Subagent 是从“单个 Agent 会干活”走向“多个 Agent 分工协作”的关键，不应等到最后才考虑。 | 有 subagent 定义、任务委托、权限继承规则、结果回传、协作 trace |
 | P2 | Observability / Evaluation / Ops: Eval Harness / Golden Traces / Regression | 保障迭代不退化。做 harness 很容易修一个坏三个，eval 是护栏。 | golden case、trace-derived eval、verify runner、live smoke |
 | P3 | Experience & Gateway Layer: API / SDK / Web UI / IDE Bridge / Channels | 这是产品入口层，重要但不应早于核心闭环。 | CLI 稳定后，再暴露 API/Web/IDE/channel |
 | P3 | Knowledge & Business Data: KB / Vector / Graph / Connectors | 企业场景很重要，但属于增强能力，不是 harness 最小内核。 | 先有 document/search/retrieval，再接业务系统 |
-| P3 | Harness Runtime / Control Plane: Multi-agent / Workflow / State Machine | 高级编排能力，适合核心 agent 单体稳定后再做。 | 有任务拆分、角色权限、状态转移、协作 trace |
+| P3 | Agent Control Plane: Workflow / State Machine | 显式 workflow 和通用状态机适合在 subagent、queue、policy、trace 都具备后再抽象，否则容易回到过度控制的 prompt-flow。 | 有任务拆分、状态转移、失败补偿、人工审批节点、协作 trace |
 
-一句话排序是：Runtime 第一，Execution / Sandbox 第二，Model Gateway 第三，Context 第四，Policy / Governance 第五，Observability / Eval 第六。
+一句话排序是：Runtime 第一，Execution / Sandbox 第二，Model Gateway 第三，Tool/MCP Registry 与 Skill Registry 第四，Context 第五，Policy / Governance 第六，Observability / Eval 第七，Subagent / Multi-agent 第八。
 
 ### 当前实现状态表
 

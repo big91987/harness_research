@@ -36,6 +36,7 @@ Implemented modules:
 - `harness.context`: simple message compaction.
 - `harness.memory`: Markdown-backed persistent memory.
 - `harness.skills`: Markdown-backed skill registry, search, and prompt injection.
+- `harness.subagents`: minimal delegate runner for child sessions, restricted permissions, and parent/child trace events.
 - `harness.tasks`: local task ledger for long-running work and session association.
 - `harness.runs`: local run ledger for each CLI turn, including status, session, turn, stop reason, and duration.
 - `harness.hooks`: local lifecycle command hooks for harness events.

@@ -134,7 +134,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 3. Harness Runtime | Memory Manager | 已实现 | Markdown memory、session extraction、memory locks |
 | 3. Harness Runtime | State Machine | 部分实现 | task/run state 已有；通用 state machine 未抽象 |
 | 3. Harness Runtime | Streaming Runtime | 未开始 | 当前未实现 token streaming / event streaming runtime |
-| 3. Harness Runtime | Multi-agent / Subagent | 未开始 | 预留给多 Agent 协作、subagent 委托 |
+| 3. Harness Runtime | Multi-agent / Subagent | 部分实现 | Subagent delegate runner 已有，支持 child session、权限收缩、父子 trace；registry、parallel fan-out、result reducer、durable worker 未做 |
 | 3. Harness Runtime | Model Gateway / Router | 部分实现 | OpenAI-compatible client、DeepSeek live 验证、retry；多模型路由未做 |
 | 4. Execution & Security Infrastructure | Sandbox Policy | 已实现 | macOS sandbox-exec runner、workspace boundary、敏感路径拒读、fail closed |
 | 4. Execution & Security Infrastructure | Workspace / Filesystem | 已实现 | path guard、read/write/append/edit/diff/move/copy/delete/list/grep |

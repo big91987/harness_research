@@ -18,6 +18,7 @@ __all__ = [
     "scaffold",
     "session",
     "skills",
+    "subagents",
     "tasks",
     "tools",
     "trace",

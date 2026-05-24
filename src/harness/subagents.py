@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 from harness.audit import AuditLog
@@ -9,7 +10,7 @@ from harness.model import ModelClient
 from harness.permissions import PermissionMode, Policy
 from harness.session import JsonlSessionStore, Session
 from harness.skills import SkillStore
-from harness.tools import ToolRegistry
+from harness.tools import Tool, ToolRegistry, ToolResult
 from harness.trace import TraceRecorder
 from harness.workspace import Workspace
 
@@ -108,3 +109,86 @@ class SubagentRunner:
                 final_text=result.final_text,
             )
         return result
+
+
+class SubagentRegistry:
+    def __init__(self) -> None:
+        self._runners: dict[str, SubagentRunner] = {}
+
+    def register(
+        self,
+        spec: SubagentSpec,
+        *,
+        model: ModelClient,
+        tools: ToolRegistry,
+        store: JsonlSessionStore,
+        workspace: Workspace,
+        trace: TraceRecorder | None = None,
+        audit: AuditLog | None = None,
+        memory: MarkdownMemoryStore | None = None,
+        skills: SkillStore | None = None,
+    ) -> None:
+        if spec.name in self._runners:
+            raise ValueError(f"subagent already registered: {spec.name}")
+        self._runners[spec.name] = SubagentRunner(
+            spec=spec,
+            model=model,
+            tools=tools,
+            store=store,
+            workspace=workspace,
+            trace=trace,
+            audit=audit,
+            memory=memory,
+            skills=skills,
+        )
+
+    def names(self) -> list[str]:
+        return sorted(self._runners)
+
+    def delegate(self, agent: str, prompt: str, *, parent_session_id: str | None = None) -> SubagentResult:
+        runner = self._runners.get(agent)
+        if runner is None:
+            raise KeyError(f"unknown subagent: {agent}")
+        return runner.delegate(prompt, parent_session_id=parent_session_id)
+
+    def delegate_task_tool(self, *, parent_session_id: str | None = None) -> Tool:
+        return Tool(
+            name="delegate_task",
+            description="Delegate a prompt to a named local subagent and return its result.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "agent": {"type": "string"},
+                    "prompt": {"type": "string"},
+                },
+                "required": ["agent", "prompt"],
+            },
+            handler=self._delegate_task_handler(parent_session_id=parent_session_id),
+            required_permission=PermissionMode.READ_ONLY,
+            category="subagent",
+        )
+
+    def _delegate_task_handler(self, *, parent_session_id: str | None = None):
+        def handler(arguments: dict[str, object], _workspace: Workspace) -> ToolResult:
+            agent = str(arguments["agent"])
+            prompt = str(arguments["prompt"])
+            try:
+                result = self.delegate(agent, prompt, parent_session_id=parent_session_id)
+            except KeyError as exc:
+                return ToolResult(str(exc), is_error=True)
+            return ToolResult(
+                json.dumps(
+                    {
+                        "agent": result.name,
+                        "session_id": result.session_id,
+                        "turn_id": result.turn_id,
+                        "stop_reason": result.stop_reason,
+                        "iterations": result.iterations,
+                        "final_text": result.final_text,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+
+        return handler

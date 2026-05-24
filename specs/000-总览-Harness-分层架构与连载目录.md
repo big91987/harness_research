@@ -115,7 +115,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 1. Experience & Gateway Layer | Messaging Gateway / Channel Adapters | 未开始 | 预留给消息入口、多渠道接入和 channel protocol |
 | 1. Experience & Gateway Layer | Device / Node Runtime | 未开始 | 预留给多节点、端侧或远端执行节点 |
 | 1. Experience & Gateway Layer | Human Approval | 部分实现 | CLI prompt approval 已有；UI 化、队列化审批未做 |
-| 2. Agent Control Plane | Agent Registry | 未开始 | 当前是单 Agent 本地运行，尚未做 Agent 注册中心 |
+| 2. Agent Control Plane | Agent Registry | 部分实现 | SubagentRegistry 已有，支持具名 subagent 注册和 delegate_task 工具；完整 Agent 注册中心、角色模板、生命周期管理未做 |
 | 2. Agent Control Plane | Tool / MCP Registry | 已实现 | 本地 tool registry、工具 profile、metadata CLI；MCP stdio client catalog 已有。注册层负责声明和同步，不负责每轮加载 |
 | 2. Agent Control Plane | Skill / Plugin Registry | 已实现 | 本地 skill registry、检索、索引；plugin 生命周期未做。注册层负责资产管理，不负责注入策略 |
 | 2. Agent Control Plane | Policy & Permission | 已实现 | permission mode、tool policy、approval、fail closed、audit context |
@@ -134,7 +134,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 3. Harness Runtime | Memory Manager | 已实现 | Markdown memory、session extraction、memory locks |
 | 3. Harness Runtime | State Machine | 部分实现 | task/run state 已有；通用 state machine 未抽象 |
 | 3. Harness Runtime | Streaming Runtime | 未开始 | 当前未实现 token streaming / event streaming runtime |
-| 3. Harness Runtime | Multi-agent / Subagent | 部分实现 | Subagent delegate runner 已有，支持 child session、权限收缩、父子 trace；registry、parallel fan-out、result reducer、durable worker 未做 |
+| 3. Harness Runtime | Multi-agent / Subagent | 部分实现 | Subagent delegate runner 与 delegate_task 工具已有，支持 child session、权限收缩、父子 trace；parallel fan-out、result reducer、durable worker 未做 |
 | 3. Harness Runtime | Model Gateway / Router | 部分实现 | OpenAI-compatible client、DeepSeek live 验证、retry；多模型路由未做 |
 | 4. Execution & Security Infrastructure | Sandbox Policy | 已实现 | macOS sandbox-exec runner、workspace boundary、敏感路径拒读、fail closed |
 | 4. Execution & Security Infrastructure | Workspace / Filesystem | 已实现 | path guard、read/write/append/edit/diff/move/copy/delete/list/grep |

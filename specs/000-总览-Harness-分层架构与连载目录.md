@@ -2,7 +2,7 @@
 
 ## 中文版：先把地图摊开
 
-我们要做的不是一堆工具函数，而是一个本地优先的 Agent Harness。费曼学习法的第一步，是把一个复杂系统讲到“初学者也能沿着线索复现”。所以这个系列不按代码文件写，而按 Harness 的分层职责写：模型之外，Agent 能行动、能记住、能治理、能复盘的部分，都逐步落成可运行模块。
+这个系列围绕一个本地优先的 Agent Harness 展开。每一篇文章都从架构职责出发，而不是从代码文件出发：模型之外，Agent 如何接入、行动、调用工具、管理上下文、复用技能、接受治理、留下证据并持续评测，都会对应到一个可运行、可验证的模块。
 
 ### 整体分层架构图
 
@@ -149,6 +149,6 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 ## English Version
 
 This series documents the local-first harness from zero to one. Each article maps
-one implementation step to the global layered architecture above, using a
-Feynman-style explanation: why it exists, what it takes as input, what it
+one implementation step to the global layered architecture above: why it exists,
+what it takes as input, what it
 produces, how it behaves, how we verified it, and what should come next.

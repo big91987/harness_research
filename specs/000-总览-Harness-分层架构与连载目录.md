@@ -130,7 +130,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 3. Harness Runtime | Tool / MCP Client | 部分实现 | 本地工具按 profile 加载并进入 turn loop；MCP stdio 生命周期、server 能力同步、namespaced runtime injection 已有；server 级 sandbox wrapper、resources/prompts、多 transport 未做 |
 | 3. Harness Runtime | Context Manager | 已实现 | session history、active task context、handoff、bundle、compaction |
 | 3. Harness Runtime | Context Budget / Compact | 已实现 | usage tracking、token/cost budget、session compact |
-| 3. Harness Runtime | Skill Runtime | 部分实现 | skill 可检索并注入上下文；按预算裁剪、运行时选择解释、和 memory/handoff 的闭环还要继续加强 |
+| 3. Harness Runtime | Skill Runtime | 部分实现 | skill 可检索、按预算选择并注入上下文，trace 记录来源；token 级预算、版本 pin、memory/handoff 闭环还要继续加强 |
 | 3. Harness Runtime | Memory Manager | 已实现 | Markdown memory、session extraction、memory locks |
 | 3. Harness Runtime | State Machine | 部分实现 | task/run state 已有；通用 state machine 未抽象 |
 | 3. Harness Runtime | Streaming Runtime | 未开始 | 当前未实现 token streaming / event streaming runtime |

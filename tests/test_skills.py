@@ -26,6 +26,20 @@ def test_skill_store_adds_searches_and_renders_context(tmp_path: Path) -> None:
     assert "pytest -q" in context
 
 
+def test_skill_store_selects_context_with_budget_metadata(tmp_path: Path) -> None:
+    store = SkillStore(tmp_path)
+    store.add("debug-tests", "Use pytest -q for focused checks.", description="Debug Python tests")
+    store.add("long-debug", "x" * 500, description="Debug long Python failures")
+
+    selection = store.select_context("debug python", limit=5, max_chars=120)
+
+    assert selection.names == ["debug-tests"]
+    assert "debug-tests" in selection.context
+    assert "long-debug" not in selection.context
+    assert selection.char_count <= 120
+    assert selection.truncated is True
+
+
 def test_skill_store_sanitizes_names(tmp_path: Path) -> None:
     store = SkillStore(tmp_path)
 

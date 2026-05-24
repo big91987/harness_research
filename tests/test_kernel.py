@@ -403,6 +403,40 @@ def test_kernel_injects_relevant_skill_context(tmp_path: Path) -> None:
     assert "pytest-debug" in system_text
 
 
+def test_kernel_traces_skill_runtime_selection(tmp_path: Path) -> None:
+    class CapturingModel(FakeModelClient):
+        captured = []
+
+        def generate(self, messages, tools):  # noqa: ANN001
+            self.captured = messages
+            return super().generate(messages, tools)
+
+    workspace = Workspace(tmp_path / "ws")
+    skills = SkillStore(tmp_path / "skills")
+    skills.add("pytest-debug", "Run focused pytest checks first.", description="Debug Python tests")
+    skills.add("long-debug", "x" * 500, description="Debug long Python failures")
+    model = CapturingModel([ModelResponse(content="ok")])
+    trace = TraceRecorder(tmp_path / "trace.jsonl")
+    kernel = AgentKernel(
+        model=model,
+        tools=default_tool_registry(),
+        store=JsonlSessionStore(tmp_path / "sessions"),
+        workspace=workspace,
+        policy=Policy(PermissionMode.READ_ONLY),
+        skills=skills,
+        trace=trace,
+        skill_context_max_chars=140,
+    )
+
+    result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "debug python tests")
+
+    assert result.stop_reason == "final_answer"
+    trace_text = (tmp_path / "trace.jsonl").read_text(encoding="utf-8")
+    assert '"skill_context"' in trace_text
+    assert '"names": ["pytest-debug"]' in trace_text
+    assert '"truncated": true' in trace_text
+
+
 def test_kernel_injects_active_task_context(tmp_path: Path) -> None:
     class CapturingModel(FakeModelClient):
         captured = []

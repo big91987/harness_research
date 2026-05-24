@@ -43,6 +43,8 @@ class AgentKernel:
     max_iterations: int = 20
     max_model_retries: int = 0
     fail_fast_on_tool_error: bool = False
+    skill_context_limit: int = 3
+    skill_context_max_chars: int | None = None
 
     def run_turn(self, session: Session, user_input: str) -> TurnResult:
         turn_id = uuid4().hex
@@ -63,9 +65,22 @@ class AgentKernel:
                 if memory_context:
                     prompt_messages.append(Message.system(memory_context))
             if self.skills:
-                skill_context = self.skills.render_context(user_input)
-                if skill_context:
-                    prompt_messages.append(Message.system(skill_context))
+                skill_selection = self.skills.select_context(
+                    user_input,
+                    limit=self.skill_context_limit,
+                    max_chars=self.skill_context_max_chars,
+                )
+                if skill_selection.context:
+                    prompt_messages.append(Message.system(skill_selection.context))
+                    trace.record(
+                        "skill_context",
+                        session_id=session.id,
+                        turn_id=turn_id,
+                        iteration=iterations,
+                        names=skill_selection.names,
+                        char_count=skill_selection.char_count,
+                        truncated=skill_selection.truncated,
+                    )
             if self.task_context:
                 prompt_messages.append(Message.system(self.task_context))
             prompt_messages.extend(context.prepare(session.messages))

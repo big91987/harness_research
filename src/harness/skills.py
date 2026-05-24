@@ -15,6 +15,14 @@ class Skill:
     path: Path
 
 
+@dataclass(frozen=True)
+class SkillSelection:
+    context: str
+    names: list[str]
+    char_count: int
+    truncated: bool = False
+
+
 class SkillStore:
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).expanduser().resolve()
@@ -62,17 +70,28 @@ class SkillStore:
         return [skill for _, skill in scored[:limit]]
 
     def render_context(self, query: str, *, limit: int = 3) -> str:
+        return self.select_context(query, limit=limit).context
+
+    def select_context(self, query: str, *, limit: int = 3, max_chars: int | None = None) -> SkillSelection:
         skills = self.search(query, limit=limit)
         if not skills:
-            return ""
+            return SkillSelection(context="", names=[], char_count=0)
         blocks = ["Available skills:"]
+        names: list[str] = []
+        truncated = False
         for skill in skills:
             header = f"- {skill.name}"
             if skill.description:
                 header += f": {skill.description}"
-            blocks.append(header)
-            blocks.append(_indent(skill.body))
-        return "\n".join(blocks)
+            candidate_blocks = [*blocks, header, _indent(skill.body)]
+            candidate = "\n".join(candidate_blocks)
+            if max_chars is not None and len(candidate) > max_chars:
+                truncated = True
+                continue
+            blocks = candidate_blocks
+            names.append(skill.name)
+        context = "\n".join(blocks) if names else ""
+        return SkillSelection(context=context, names=names, char_count=len(context), truncated=truncated)
 
     def _read(self, path: Path) -> Skill:
         text = path.read_text(encoding="utf-8")

@@ -713,6 +713,56 @@ def test_cli_run_records_run_ledger(tmp_path: Path) -> None:
     assert record["duration_seconds"] >= 0
 
 
+def test_cli_runs_can_enqueue_and_cancel(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    enqueued = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--enqueue",
+            "queued prompt",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    pending = json.loads(enqueued.stdout)
+    assert pending["status"] == "pending"
+
+    cancelled = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--cancel",
+            pending["id"],
+            "--reason",
+            "not needed",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(cancelled.stdout)
+
+    assert payload["status"] == "cancelled"
+    assert payload["stop_reason"] == "cancelled"
+    assert payload["metadata"]["cancel_reason"] == "not needed"
+
+
 def test_cli_runs_diagnose_summarizes_failed_run(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs"
     trace = tmp_path / "trace.jsonl"

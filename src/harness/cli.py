@@ -147,6 +147,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     runs = subparsers.add_parser("runs", help="List and show local harness run records.")
     runs.add_argument("--run-dir")
+    runs.add_argument("--enqueue")
+    runs.add_argument("--workspace")
+    runs.add_argument("--task-id")
+    runs.add_argument("--cancel")
+    runs.add_argument("--reason", default="")
     runs.add_argument("--show")
     runs.add_argument("--diagnose")
     runs.add_argument("--session-dir")
@@ -865,6 +870,26 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "runs":
         config = _merged_config(args)
         runs = RunStore(config.run_dir)
+        if args.enqueue:
+            record = runs.enqueue(prompt=args.enqueue, workspace=args.workspace or config.workspace, task_id=args.task_id)
+            payload = _run_record_dict(record)
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            print(f"enqueued: {record.id}")
+            print(f"status: {record.status}")
+            return 0
+        if args.cancel:
+            try:
+                record = runs.cancel(args.cancel, reason=args.reason)
+            except (KeyError, ValueError) as exc:
+                raise SystemExit(str(exc)) from exc
+            payload = _run_record_dict(record)
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+                return 0
+            print(f"cancelled: {record.id}")
+            return 0
         if args.diagnose:
             try:
                 record = runs.load(args.diagnose)

@@ -11,9 +11,11 @@ from harness.storage import atomic_write_text, file_lock
 
 
 class RunStatus(str, Enum):
+    PENDING = "pending"
     IN_PROGRESS = "in_progress"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 @dataclass
@@ -34,6 +36,10 @@ class RunRecord:
     @classmethod
     def new(cls, *, prompt: str, workspace: str, session_id: str | None = None, task_id: str | None = None) -> "RunRecord":
         return cls(id=uuid4().hex, prompt=prompt, workspace=workspace, session_id=session_id, task_id=task_id)
+
+    @classmethod
+    def pending(cls, *, prompt: str, workspace: str, task_id: str | None = None) -> "RunRecord":
+        return cls(id=uuid4().hex, prompt=prompt, workspace=workspace, status=RunStatus.PENDING.value, task_id=task_id)
 
     @classmethod
     def from_dict(cls, data: dict) -> "RunRecord":
@@ -69,6 +75,14 @@ class RunStore:
 
     def create(self, *, prompt: str, workspace: str, session_id: str | None = None, task_id: str | None = None) -> RunRecord:
         record = RunRecord.new(prompt=prompt, workspace=workspace, session_id=session_id, task_id=task_id)
+        with file_lock(self.lock_path):
+            records = self._read_unlocked()
+            records[record.id] = record
+            self._write_unlocked(records)
+        return record
+
+    def enqueue(self, *, prompt: str, workspace: str, task_id: str | None = None) -> RunRecord:
+        record = RunRecord.pending(prompt=prompt, workspace=workspace, task_id=task_id)
         with file_lock(self.lock_path):
             records = self._read_unlocked()
             records[record.id] = record
@@ -125,6 +139,39 @@ class RunStore:
             record.ended_at = time()
             if metadata:
                 record.metadata.update(metadata)
+            records[run_id] = record
+            self._write_unlocked(records)
+            return record
+
+    def start(self, run_id: str, *, session_id: str | None = None) -> RunRecord:
+        with file_lock(self.lock_path):
+            records = self._read_unlocked()
+            if run_id not in records:
+                raise KeyError(f"run not found: {run_id}")
+            record = records[run_id]
+            if record.status != RunStatus.PENDING.value:
+                raise ValueError(f"run {run_id} is {record.status}, expected pending")
+            record.status = RunStatus.IN_PROGRESS.value
+            record.started_at = time()
+            if session_id is not None:
+                record.session_id = session_id
+            records[run_id] = record
+            self._write_unlocked(records)
+            return record
+
+    def cancel(self, run_id: str, *, reason: str = "") -> RunRecord:
+        with file_lock(self.lock_path):
+            records = self._read_unlocked()
+            if run_id not in records:
+                raise KeyError(f"run not found: {run_id}")
+            record = records[run_id]
+            if record.status not in {RunStatus.PENDING.value, RunStatus.IN_PROGRESS.value}:
+                raise ValueError(f"run {run_id} is {record.status} and cannot be cancelled")
+            record.status = RunStatus.CANCELLED.value
+            record.stop_reason = "cancelled"
+            record.ended_at = time()
+            if reason:
+                record.metadata["cancel_reason"] = reason
             records[run_id] = record
             self._write_unlocked(records)
             return record

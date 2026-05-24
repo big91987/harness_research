@@ -491,6 +491,18 @@ PYTHONPATH=src python3 -m harness.cli runs \
 
 PYTHONPATH=src python3 -m harness.cli runs \
   --run-dir /tmp/harness-runs \
+  --workspace /tmp/harness-ws \
+  --enqueue "queued prompt" \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
+  --cancel <run-id> \
+  --reason "no longer needed" \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
   --status failed \
   --json
 
@@ -512,6 +524,8 @@ Every `run` command creates a run record before the kernel starts and finishes i
 after the turn ends. Records include the session id, turn id, stop reason,
 iteration count, status, and duration, giving future server or worker code a
 stable local run ledger instead of reconstructing runs from trace files.
+Pending and cancelled records give future local workers and server APIs a stable
+queue-state vocabulary before a network server exists.
 `runs --diagnose` joins the run record with session state plus trace/audit
 summaries for the same turn, which is the local failure-replay surface before a
 server UI exists.

@@ -564,6 +564,58 @@ def test_cli_tools_call_exits_nonzero_on_policy_error(tmp_path: Path) -> None:
     assert "requires workspace-write permission" in payload["output"]
 
 
+def test_cli_prompt_permission_denies_without_stdin(tmp_path: Path) -> None:
+    responses = _write_mock_response(
+        tmp_path,
+        [
+            {
+                "content": "try write",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "name": "write_file",
+                        "arguments": {"path": "denied.txt", "content": "no"},
+                    }
+                ],
+            }
+        ],
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "try write",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--permission",
+            "prompt",
+            "--max-iterations",
+            "1",
+            "--mock-responses",
+            str(responses),
+            "--json",
+        ],
+        input="",
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+
+    assert result.returncode == 2
+    payload = json.loads(result.stdout)
+    assert payload["stop_reason"] == "max_iterations"
+    assert not (tmp_path / "ws" / "denied.txt").exists()
+    audit = (tmp_path / "audit.jsonl").read_text(encoding="utf-8")
+    assert '"type": "approval"' in audit
+    assert '"allowed": false' in audit
+
+
 def test_cli_can_resume_existing_session(tmp_path: Path) -> None:
     session_dir = tmp_path / "sessions"
     workspace = tmp_path / "ws"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
@@ -387,7 +388,12 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
 
 
 def _approval_callback(action: str, required: PermissionMode) -> bool:
-    answer = input(f"Approve {action} requiring {required.value}? [y/N] ")
+    sys.stderr.write(f"Approve {action} requiring {required.value}? [y/N] ")
+    sys.stderr.flush()
+    try:
+        answer = input()
+    except EOFError:
+        return False
     return answer.strip().lower() in {"y", "yes"}
 
 

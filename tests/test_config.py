@@ -11,6 +11,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
           "workspace": "ws",
           "session_dir": "sessions",
           "trace": "trace.jsonl",
+          "cache_dir": "cache",
           "secret_store": "secrets.json",
           "memory_dir": "memory",
           "skill_dir": "skills",
@@ -55,6 +56,7 @@ def test_config_loads_json_and_overrides_env(tmp_path: Path, monkeypatch) -> Non
     config = HarnessConfig.load(config_path)
 
     assert config.workspace == "ws"
+    assert config.cache_dir == "cache"
     assert config.secret_store == "secrets.json"
     assert config.skill_dir == "skills"
     assert config.task_dir == "tasks"
@@ -94,6 +96,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     monkeypatch.setenv("HARNESS_MAX_TOTAL_TOKENS", "42")
     monkeypatch.setenv("HARNESS_MAX_COST_USD", "0.25")
     monkeypatch.setenv("HARNESS_SKILL_DIR", "env-skills")
+    monkeypatch.setenv("HARNESS_CACHE_DIR", "env-cache")
     monkeypatch.setenv("HARNESS_SECRET_STORE", "env-secrets.json")
     monkeypatch.setenv("HARNESS_TASK_DIR", "env-tasks")
     monkeypatch.setenv("HARNESS_RUN_DIR", "env-runs")
@@ -117,6 +120,7 @@ def test_config_loads_cost_env_overrides(monkeypatch) -> None:
     assert config.max_total_tokens == 42
     assert config.max_cost_usd == 0.25
     assert config.skill_dir == "env-skills"
+    assert config.cache_dir == "env-cache"
     assert config.secret_store == "env-secrets.json"
     assert config.task_dir == "env-tasks"
     assert config.run_dir == "env-runs"

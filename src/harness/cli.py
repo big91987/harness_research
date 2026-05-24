@@ -8,6 +8,7 @@ from pathlib import Path
 
 from harness.artifacts import ArtifactQuery, ArtifactStore
 from harness.audit import AuditLog, AuditQuery
+from harness.cache import FileCache
 from harness.checkpoint import WorkspaceCheckpoint
 from harness.config import HarnessConfig
 from harness.context import ContextManager
@@ -102,6 +103,18 @@ def build_parser() -> argparse.ArgumentParser:
     tools.add_argument("--max-bash-timeout-seconds", type=int)
     tools.add_argument("--sandbox-runner")
     tools.add_argument("--json", action="store_true")
+
+    cache = subparsers.add_parser("cache", help="Inspect and manage local harness cache.")
+    cache.add_argument("--cache-dir")
+    cache.add_argument("--namespace", default="default")
+    cache.add_argument("--key-json", default="null")
+    cache.add_argument("--set-json")
+    cache.add_argument("--ttl-seconds", type=int)
+    cache.add_argument("--get", action="store_true")
+    cache.add_argument("--delete", action="store_true")
+    cache.add_argument("--clear", action="store_true")
+    cache.add_argument("--list", action="store_true")
+    cache.add_argument("--json", action="store_true")
 
     mcp = subparsers.add_parser("mcp", help="Inspect and call stdio MCP servers.")
     mcp.add_argument("--mcp-config", required=True, help="Path to a JSON config with mcpServers.")
@@ -403,6 +416,7 @@ def _merged_config(args: argparse.Namespace) -> HarnessConfig:
         "trace",
         "audit",
         "artifact_dir",
+        "cache_dir",
         "secret_store",
         "memory_dir",
         "skill_dir",
@@ -844,6 +858,42 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         for name in tools.names():
             print(name)
+        return 0
+    if args.command == "cache":
+        config = _merged_config(args)
+        cache = FileCache(config.cache_dir)
+        key = json.loads(args.key_json)
+        if args.set_json is not None:
+            path = cache.set(args.namespace, key, json.loads(args.set_json), ttl_seconds=args.ttl_seconds)
+            print(f"stored: {path}")
+            return 0
+        if args.get:
+            value = cache.get(args.namespace, key)
+            if value is None:
+                return 1
+            print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0
+        if args.delete:
+            print(f"deleted: {cache.delete(args.namespace, key)}")
+            return 0
+        if args.clear:
+            print(f"cleared: {cache.clear(namespace=args.namespace)}")
+            return 0
+        entries = [
+            {
+                "namespace": entry.namespace,
+                "key_hash": entry.key_hash,
+                "created_at": entry.created_at,
+                "expires_at": entry.expires_at,
+                "path": str(entry.path),
+            }
+            for entry in cache.list_entries(namespace=args.namespace)
+        ]
+        if args.json:
+            print(json.dumps(entries, ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            for entry in entries:
+                print(f"{entry['namespace']} {entry['key_hash']} {entry['path']}")
         return 0
     if args.command == "mcp":
         configs = load_mcp_config(args.mcp_config)

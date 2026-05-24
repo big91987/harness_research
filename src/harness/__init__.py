@@ -3,6 +3,7 @@
 __all__ = [
     "artifacts",
     "audit",
+    "cache",
     "context",
     "config",
     "doctor",

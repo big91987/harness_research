@@ -146,7 +146,7 @@ Model Gateway -> Agent Loop -> Tool Execution -> Sandbox / Workspace -> Context 
 | 4. Execution & Security Infrastructure | Artifact Store | 已实现 | artifact register/query/verify、checkpoint artifact manifest |
 | 4. Execution & Security Infrastructure | Metadata Store | 部分实现 | JSONL/JSON 本地状态已有；统一 metadata store 未抽象 |
 | 4. Execution & Security Infrastructure | Event Bus | 部分实现 | In-process EventBus、typed/wildcard subscribe、history、TraceRecorder publish 已有；跨进程 stream、队列、OTel bridge 未做 |
-| 4. Execution & Security Infrastructure | Cache | 未开始 | 目前没有统一 cache 模块 |
+| 4. Execution & Security Infrastructure | Cache | 部分实现 | FileCache、namespace、TTL、CLI 管理已有；tool/model/retrieval cache policy 与 eviction 未做 |
 | 5. Knowledge & Business Data | Knowledge Base | 部分实现 | Markdown memory 可作为轻量知识库；业务 KB 未做 |
 | 5. Knowledge & Business Data | Vector DB | 未开始 | 尚未接向量数据库 |
 | 5. Knowledge & Business Data | Graph / Ontology | 未开始 | 尚未做图谱/本体 |

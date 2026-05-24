@@ -24,6 +24,7 @@ CLI
 Implemented modules:
 
 - `harness.cli`: local command line entry point.
+- `harness.cache`: namespace-based local file cache with TTL and CLI management.
 - `harness.kernel`: turn loop, model call, tool dispatch, session persistence, trace events.
 - `harness.model`: fake model for tests and OpenAI-compatible chat completions client.
 - `harness.network_policy`: host allow/deny egress policy for model requests.

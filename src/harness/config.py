@@ -21,6 +21,7 @@ class HarnessConfig:
     trace: str = ".harness/trace.jsonl"
     audit: str = ".harness/audit.jsonl"
     artifact_dir: str = ".harness/artifacts"
+    cache_dir: str = ".harness/cache"
     secret_store: str = ".harness/secrets.json"
     memory_dir: str = ".harness/memory"
     skill_dir: str = ".harness/skills"
@@ -73,6 +74,7 @@ class HarnessConfig:
             "HARNESS_TRACE": "trace",
             "HARNESS_AUDIT": "audit",
             "HARNESS_ARTIFACT_DIR": "artifact_dir",
+            "HARNESS_CACHE_DIR": "cache_dir",
             "HARNESS_SECRET_STORE": "secret_store",
             "HARNESS_MEMORY_DIR": "memory_dir",
             "HARNESS_SKILL_DIR": "skill_dir",

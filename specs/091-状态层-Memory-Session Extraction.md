@@ -1,6 +1,10 @@
-# 001-状态层-Memory-Session Extraction
+# 091-状态层-Memory-Session Extraction
 
 ## 中文版：把一场对话酿成长期记忆
+
+### 整体架构引用
+
+参见：[000-总览-Harness-分层架构与连载目录](000-总览-Harness-分层架构与连载目录.md)。本文位于状态层的 Memory 分支。
 
 ### 全局作用
 
@@ -29,6 +33,14 @@ Session Extraction 是本地 harness 的第一条“做梦”支线：从已经�
 我们先写了两个单元测试：一个证明 extractor 能把模型返回写入 memory，另一个证明空项和重复项不会污染长期记忆。随后补了 CLI smoke：先创建 session，再通过 `memory --extract-session` 抽取到 memory。最后用真实 DeepSeek 跑了一次：session 中写入“尽量使用真实 DeepSeek 验证”，extractor 成功沉淀为 Markdown memory。
 
 ### 当前实现
+
+| 项 | 状态 |
+|---|---|
+| 层 | 状态层 |
+| 模块 | Memory |
+| 子模块 | Session Extraction |
+| 实现状态 | 已实现 |
+| 对应提交 | `f591d1c Extract memory from sessions` |
 
 - 模块：`harness.memory.SessionMemoryExtractor`
 - CLI：`harness memory --extract-session <session-id>`
@@ -74,4 +86,3 @@ verified that a durable preference from a real session was persisted.
 
 Automatic dream scheduling, scoped memory, source/version metadata, confidence,
 and model-assisted conflict repair.
-

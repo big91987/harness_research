@@ -1,6 +1,10 @@
-# 002-执行层-RunQueue-Worker Failure Handling
+# 092-执行层-RunQueue-Worker Failure Handling
 
 ## 中文版：别让任务死在半路上
+
+### 整体架构引用
+
+参见：[000-总览-Harness-分层架构与连载目录](000-总览-Harness-分层架构与连载目录.md)。本文位于执行层和治理层交界处的 RunQueue / Worker 分支。
 
 ### 全局作用
 
@@ -28,6 +32,14 @@ RunQueue 属于执行层和治理层的交界处：它把“一次 CLI 调用”
 我们用一个缺失 task 的 queued run 做红测试。最初现象是 worker 直接退出，stdout 为空，run 还留在队列里。随后发现 `runs` 子命令还缺少 `--task-dir`，于是补齐 worker 显式状态目录参数。最后把 `_run_queued_record` 的 build、start、task update、turn execution 都包进错误归档逻辑，让异常变成可诊断的 failed run。
 
 ### 当前实现
+
+| 项 | 状态 |
+|---|---|
+| 层 | 执行层 |
+| 模块 | RunQueue |
+| 子模块 | Worker Failure Handling |
+| 实现状态 | 已实现 |
+| 对应提交 | `6a5ccc4 Fail queued worker records cleanly` |
 
 - 模块：`harness.runs.RunStore` + `harness.cli._run_queued_record`
 - CLI：
@@ -75,4 +87,3 @@ the happy path after the failure-handling change.
 ### Future Work
 
 Stale-run reclaim, worker leases, failure taxonomy, and retry policy.
-

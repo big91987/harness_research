@@ -1,6 +1,10 @@
-# 003-工具层-Execution-Python Tool
+# 093-工具层-Execution-Python Tool
 
 ## 中文版：给 Agent 一支安全的 Python 笔
+
+### 整体架构引用
+
+参见：[000-总览-Harness-分层架构与连载目录](000-总览-Harness-分层架构与连载目录.md)。本文位于工具层的 Execution 分支，并通过 Sandbox Runner 接入安全边界。
 
 ### 全局作用
 
@@ -30,6 +34,14 @@
 我们先写红测试：registry 里应该出现 `python`，它必须要求 `danger` 权限和 sandbox runner；配置 runner 后能在 workspace 写文件；sandbox runner 自己也要能处理 `tool=python`。红点集中在两个地方：工具注册表没有 `python`，runner 只接受 `bash`。随后把 `python` 接到同一条 JSON runner 协议里，保持和 `bash` 一致的 fail-closed 行为。
 
 ### 当前实现
+
+| 项 | 状态 |
+|---|---|
+| 层 | 工具层 |
+| 模块 | Execution |
+| 子模块 | Python Tool |
+| 实现状态 | 已实现 |
+| 对应提交 | `965af80 Add sandboxed python tool` |
 
 - 模块：
   - `harness.tools._python`
@@ -75,4 +87,3 @@ common sensitive host reads.
 
 Node.js execution, artifact capture, dependency/network policy, and a shared
 `sandboxed_process` abstraction for execution tools.
-

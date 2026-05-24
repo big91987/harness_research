@@ -150,6 +150,8 @@ def build_parser() -> argparse.ArgumentParser:
     runs.add_argument("--run-dir")
     runs.add_argument("--enqueue")
     runs.add_argument("--run-next", action="store_true")
+    runs.add_argument("--run-until-empty", action="store_true")
+    runs.add_argument("--max-runs", type=int)
     runs.add_argument("--workspace")
     runs.add_argument("--task-id")
     runs.add_argument("--cancel")
@@ -549,6 +551,43 @@ def _prepare_worker_run_args(args: argparse.Namespace, record) -> None:  # noqa:
             setattr(args, name, value)
 
 
+def _run_queued_record(args: argparse.Namespace, config: HarnessConfig, runs: RunStore, record) -> dict:  # noqa: ANN001
+    _prepare_worker_run_args(args, record)
+    kernel, session = build_kernel(args)
+    runs.start(record.id, session_id=session.id)
+    task_store = TaskStore(config.task_dir) if record.task_id else None
+    if record.task_id and task_store is not None:
+        task_store.update(record.task_id, status=TaskStatus.IN_PROGRESS, session_id=session.id)
+    result = kernel.run_turn(session, record.prompt)
+    completed = runs.finish(
+        record.id,
+        status=RunStatus.SUCCEEDED if result.stop_reason == "final_answer" else RunStatus.FAILED,
+        session_id=result.session_id,
+        turn_id=result.turn_id,
+        stop_reason=result.stop_reason,
+        iterations=result.iterations,
+    )
+    if record.task_id and task_store is not None:
+        task_store.update(
+            record.task_id,
+            status=TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED,
+            session_id=result.session_id,
+            metadata={
+                "last_stop_reason": result.stop_reason,
+                "last_iterations": str(result.iterations),
+            },
+        )
+    return {
+        "final_text": result.final_text,
+        "run_id": completed.id,
+        "session_id": result.session_id,
+        "turn_id": result.turn_id,
+        "iterations": result.iterations,
+        "stop_reason": result.stop_reason,
+        "status": completed.status,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -933,52 +972,44 @@ def main(argv: list[str] | None = None) -> int:
             print(f"cancelled: {record.id}")
             return 0
         if args.run_next:
-            pending = runs.list(status=RunStatus.PENDING, limit=1)
+            pending = runs.list(status=RunStatus.PENDING)
             if not pending:
                 raise SystemExit("no pending runs")
-            record = pending[0]
-            _prepare_worker_run_args(args, record)
-            kernel, session = build_kernel(args)
-            runs.start(record.id, session_id=session.id)
-            task_store = TaskStore(config.task_dir) if record.task_id else None
-            if record.task_id and task_store is not None:
-                task_store.update(record.task_id, status=TaskStatus.IN_PROGRESS, session_id=session.id)
-            result = kernel.run_turn(session, record.prompt)
-            completed = runs.finish(
-                record.id,
-                status=RunStatus.SUCCEEDED if result.stop_reason == "final_answer" else RunStatus.FAILED,
-                session_id=result.session_id,
-                turn_id=result.turn_id,
-                stop_reason=result.stop_reason,
-                iterations=result.iterations,
-            )
-            if record.task_id and task_store is not None:
-                task_store.update(
-                    record.task_id,
-                    status=TaskStatus.DONE if result.stop_reason == "final_answer" else TaskStatus.BLOCKED,
-                    session_id=result.session_id,
-                    metadata={
-                        "last_stop_reason": result.stop_reason,
-                        "last_iterations": str(result.iterations),
-                    },
-                )
+            payload = _run_queued_record(args, config, runs, pending[0])
+            if args.json:
+                print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+            else:
+                print(payload["final_text"])
+                print(f"\nrun: {payload['run_id']}")
+                print(f"session: {payload['session_id']}")
+                print(f"stop_reason: {payload['stop_reason']}")
+            return 0 if payload["stop_reason"] == "final_answer" else 2
+        if args.run_until_empty:
+            if args.max_runs is not None and args.max_runs < 0:
+                raise SystemExit("--max-runs must be >= 0")
+            results = []
+            while args.max_runs is None or len(results) < args.max_runs:
+                pending = runs.list(status=RunStatus.PENDING)
+                if not pending:
+                    break
+                results.append(_run_queued_record(args, config, runs, pending[0]))
+            succeeded = sum(1 for item in results if item["status"] == RunStatus.SUCCEEDED.value)
+            failed = sum(1 for item in results if item["status"] == RunStatus.FAILED.value)
             payload = {
-                "final_text": result.final_text,
-                "run_id": completed.id,
-                "session_id": result.session_id,
-                "turn_id": result.turn_id,
-                "iterations": result.iterations,
-                "stop_reason": result.stop_reason,
-                "status": completed.status,
+                "processed": len(results),
+                "succeeded": succeeded,
+                "failed": failed,
+                "runs": results,
             }
             if args.json:
                 print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
             else:
-                print(result.final_text)
-                print(f"\nrun: {completed.id}")
-                print(f"session: {result.session_id}")
-                print(f"stop_reason: {result.stop_reason}")
-            return 0 if result.stop_reason == "final_answer" else 2
+                print(f"processed: {payload['processed']}")
+                print(f"succeeded: {payload['succeeded']}")
+                print(f"failed: {payload['failed']}")
+                for item in results:
+                    print(f"{item['run_id']} {item['status']} stop_reason={item['stop_reason']}")
+            return 0 if failed == 0 else 2
         if args.diagnose:
             try:
                 record = runs.load(args.diagnose)

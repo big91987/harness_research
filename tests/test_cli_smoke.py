@@ -892,6 +892,205 @@ def test_cli_runs_can_run_next_pending_record(tmp_path: Path) -> None:
     assert records[0]["stop_reason"] == "final_answer"
 
 
+def test_cli_runs_can_drain_pending_records(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    first = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--enqueue",
+            "first queued prompt",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    second = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--enqueue",
+            "second queued prompt",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    expected_ids = [json.loads(first.stdout)["id"], json.loads(second.stdout)["id"]]
+
+    drained = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--run-until-empty",
+            "--mock-final",
+            "drained-ok",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(drained.stdout)
+
+    assert payload["processed"] == 2
+    assert payload["succeeded"] == 2
+    assert payload["failed"] == 0
+    assert [item["run_id"] for item in payload["runs"]] == expected_ids
+    assert all(item["final_text"] == "drained-ok" for item in payload["runs"])
+
+    pending = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--status",
+            "pending",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert json.loads(pending.stdout) == []
+
+
+def test_cli_runs_drain_empty_queue_is_success(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(tmp_path / "runs"),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--run-until-empty",
+            "--mock-final",
+            "unused",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(result.stdout)
+
+    assert payload["processed"] == 0
+    assert payload["succeeded"] == 0
+    assert payload["failed"] == 0
+    assert payload["runs"] == []
+
+
+def test_cli_runs_drain_respects_max_runs(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    for prompt in ("first queued prompt", "second queued prompt"):
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "harness.cli",
+                "runs",
+                "--run-dir",
+                str(run_dir),
+                "--workspace",
+                str(tmp_path / "ws"),
+                "--enqueue",
+                prompt,
+                "--json",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+
+    drained = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--session-dir",
+            str(tmp_path / "sessions"),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--run-until-empty",
+            "--max-runs",
+            "1",
+            "--mock-final",
+            "one-ok",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(drained.stdout)
+
+    assert payload["processed"] == 1
+    pending = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--status",
+            "pending",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert len(json.loads(pending.stdout)) == 1
+
+
 def test_cli_runs_diagnose_summarizes_failed_run(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs"
     trace = tmp_path / "trace.jsonl"

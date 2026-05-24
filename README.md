@@ -511,6 +511,15 @@ PYTHONPATH=src python3 -m harness.cli runs \
 
 PYTHONPATH=src python3 -m harness.cli runs \
   --run-dir /tmp/harness-runs \
+  --session-dir /tmp/harness-sessions \
+  --trace /tmp/harness-trace.jsonl \
+  --audit /tmp/harness-audit.jsonl \
+  --run-until-empty \
+  --max-runs 10 \
+  --json
+
+PYTHONPATH=src python3 -m harness.cli runs \
+  --run-dir /tmp/harness-runs \
   --status failed \
   --json
 
@@ -537,6 +546,10 @@ queue-state vocabulary before a network server exists.
 `runs --run-next` is the minimal local worker: it claims the oldest pending run,
 executes it through the same kernel/session/trace/audit path as `run`, and then
 marks the record `succeeded` or `failed`.
+`runs --run-until-empty` keeps consuming pending records in FIFO order until the
+queue is empty or `--max-runs` is reached. An empty queue is a successful no-op,
+which makes it safe for cron-style local workers before the harness server
+exists.
 `runs --diagnose` joins the run record with session state plus trace/audit
 summaries for the same turn, which is the local failure-replay surface before a
 server UI exists.

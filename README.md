@@ -42,6 +42,7 @@ Implemented modules:
 - `harness.runs`: local run ledger for each CLI turn, including status, session, turn, stop reason, and duration.
 - `harness.hooks`: local lifecycle command hooks for harness events.
 - `harness.handoff`: Markdown handoff generation for long-running session continuity.
+- `harness.event_bus`: in-process publish/subscribe events with optional trace publishing.
 - `harness.trace`: JSONL trajectory/trace events.
 - `harness.config`: JSON config loading with environment overrides.
 - `harness.cost`: canonical usage normalization and model cost estimation.

@@ -6,19 +6,23 @@ from time import time
 from typing import Any
 
 from harness.cost import canonical_usage
+from harness.event_bus import EventBus
 from harness.storage import file_lock, locked_append_text
 
 
 class TraceRecorder:
-    def __init__(self, path: str | Path | None = None) -> None:
+    def __init__(self, path: str | Path | None = None, *, event_bus: EventBus | None = None) -> None:
         self.path = Path(path).expanduser().resolve() if path else None
+        self.event_bus = event_bus
         if self.path:
             self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def record(self, event_type: str, **data: Any) -> None:
+        event = {"ts": time(), "type": event_type, **data}
+        if self.event_bus:
+            self.event_bus.publish(event_type, **data)
         if not self.path:
             return
-        event = {"ts": time(), "type": event_type, **data}
         locked_append_text(self.path, json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
 
     def read_events(self) -> list[dict[str, Any]]:

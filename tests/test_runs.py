@@ -30,11 +30,12 @@ def test_run_store_creates_finishes_lists_and_filters(tmp_path: Path) -> None:
 
 def test_run_store_enqueues_starts_and_cancels_runs(tmp_path: Path) -> None:
     store = RunStore(tmp_path)
-    pending = store.enqueue(prompt="queued", workspace="/ws", task_id="task-1")
+    pending = store.enqueue(prompt="queued", workspace="/ws", session_id="existing-session", task_id="task-1")
 
     started = store.start(pending.id, session_id="s1")
 
     assert pending.status == RunStatus.PENDING.value
+    assert pending.session_id == "existing-session"
     assert started.status == RunStatus.IN_PROGRESS.value
     assert started.session_id == "s1"
 

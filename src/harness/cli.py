@@ -524,7 +524,7 @@ def _run_record_dict(record) -> dict:  # noqa: ANN001 - CLI stays decoupled from
 def _prepare_worker_run_args(args: argparse.Namespace, record) -> None:  # noqa: ANN001
     args.prompt = record.prompt
     args.workspace = record.workspace
-    args.session = None
+    args.session = record.session_id
     args.task_id = record.task_id
     for name, value in {
         "base_url": None,
@@ -952,7 +952,12 @@ def main(argv: list[str] | None = None) -> int:
         config = _merged_config(args)
         runs = RunStore(config.run_dir)
         if args.enqueue:
-            record = runs.enqueue(prompt=args.enqueue, workspace=args.workspace or config.workspace, task_id=args.task_id)
+            record = runs.enqueue(
+                prompt=args.enqueue,
+                workspace=args.workspace or config.workspace,
+                session_id=args.session,
+                task_id=args.task_id,
+            )
             payload = _run_record_dict(record)
             if args.json:
                 print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))

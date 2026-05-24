@@ -892,6 +892,102 @@ def test_cli_runs_can_run_next_pending_record(tmp_path: Path) -> None:
     assert records[0]["stop_reason"] == "final_answer"
 
 
+def test_cli_queued_run_can_resume_existing_session(tmp_path: Path) -> None:
+    run_dir = tmp_path / "runs"
+    session_dir = tmp_path / "sessions"
+    initial = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "run",
+            "start session",
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session-dir",
+            str(session_dir),
+            "--run-dir",
+            str(run_dir),
+            "--mock-final",
+            "started",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    session_id = json.loads(initial.stdout)["session_id"]
+
+    enqueued = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--workspace",
+            str(tmp_path / "ws"),
+            "--session",
+            session_id,
+            "--enqueue",
+            "continue session",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert json.loads(enqueued.stdout)["session_id"] == session_id
+
+    executed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "runs",
+            "--run-dir",
+            str(run_dir),
+            "--session-dir",
+            str(session_dir),
+            "--trace",
+            str(tmp_path / "trace.jsonl"),
+            "--audit",
+            str(tmp_path / "audit.jsonl"),
+            "--run-next",
+            "--mock-final",
+            "continued",
+            "--json",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    payload = json.loads(executed.stdout)
+
+    assert payload["session_id"] == session_id
+    history = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "harness.cli",
+            "sessions",
+            "--session-dir",
+            str(session_dir),
+            "--show",
+            session_id,
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+        env={**os.environ, "PYTHONPATH": "src"},
+    )
+    assert "messages: 4" in history.stdout
+
+
 def test_cli_runs_can_drain_pending_records(tmp_path: Path) -> None:
     run_dir = tmp_path / "runs"
     first = subprocess.run(

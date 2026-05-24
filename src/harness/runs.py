@@ -38,8 +38,22 @@ class RunRecord:
         return cls(id=uuid4().hex, prompt=prompt, workspace=workspace, session_id=session_id, task_id=task_id)
 
     @classmethod
-    def pending(cls, *, prompt: str, workspace: str, task_id: str | None = None) -> "RunRecord":
-        return cls(id=uuid4().hex, prompt=prompt, workspace=workspace, status=RunStatus.PENDING.value, task_id=task_id)
+    def pending(
+        cls,
+        *,
+        prompt: str,
+        workspace: str,
+        session_id: str | None = None,
+        task_id: str | None = None,
+    ) -> "RunRecord":
+        return cls(
+            id=uuid4().hex,
+            prompt=prompt,
+            workspace=workspace,
+            status=RunStatus.PENDING.value,
+            session_id=session_id,
+            task_id=task_id,
+        )
 
     @classmethod
     def from_dict(cls, data: dict) -> "RunRecord":
@@ -81,8 +95,15 @@ class RunStore:
             self._write_unlocked(records)
         return record
 
-    def enqueue(self, *, prompt: str, workspace: str, task_id: str | None = None) -> RunRecord:
-        record = RunRecord.pending(prompt=prompt, workspace=workspace, task_id=task_id)
+    def enqueue(
+        self,
+        *,
+        prompt: str,
+        workspace: str,
+        session_id: str | None = None,
+        task_id: str | None = None,
+    ) -> RunRecord:
+        record = RunRecord.pending(prompt=prompt, workspace=workspace, session_id=session_id, task_id=task_id)
         with file_lock(self.lock_path):
             records = self._read_unlocked()
             records[record.id] = record

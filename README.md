@@ -492,6 +492,7 @@ PYTHONPATH=src python3 -m harness.cli runs \
 PYTHONPATH=src python3 -m harness.cli runs \
   --run-dir /tmp/harness-runs \
   --workspace /tmp/harness-ws \
+  --session <session-id> \
   --enqueue "queued prompt" \
   --json
 
@@ -543,6 +544,8 @@ iteration count, status, and duration, giving future server or worker code a
 stable local run ledger instead of reconstructing runs from trace files.
 Pending and cancelled records give future local workers and server APIs a stable
 queue-state vocabulary before a network server exists.
+Queued records can also carry a `session_id`, so follow-up work can resume the
+same conversation context instead of always starting a fresh session.
 `runs --run-next` is the minimal local worker: it claims the oldest pending run,
 executes it through the same kernel/session/trace/audit path as `run`, and then
 marks the record `succeeded` or `failed`.

@@ -47,6 +47,7 @@ flowchart TD
 - 配置：`fail_fast_on_tool_error`、`HARNESS_FAIL_FAST_ON_TOOL_ERROR`
 - CLI：`harness run --fail-fast-on-tool-error`
 - Stop reason：`tool_error`
+- 本轮补强：fail-fast 不只跳过同 batch 的后续工具，而是结束当前 turn；CLI 因 `tool_error` 返回失败退出码，trace 保留 `tool_batch_aborted` 和 `turn_end`。
 
 ### 横向对标
 

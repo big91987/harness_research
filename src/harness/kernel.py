@@ -114,6 +114,7 @@ class AgentKernel:
                 stop_reason = "final_answer"
                 break
 
+            abort_turn = False
             for call in response.tool_calls:
                 try:
                     tool = self.tools.get(call.name)
@@ -123,7 +124,9 @@ class AgentKernel:
                         self.policy,
                         audit_context={"session_id": session.id, "turn_id": turn_id},
                     )
-                except Exception as exc:  # noqa: BLE001 - tool lookup/runtime errors return to model.
+                except KeyError:
+                    result = ToolResult(f"Unknown tool: {call.name}", is_error=True)
+                except Exception as exc:  # noqa: BLE001 - tool runtime errors return to model.
                     result = ToolResult(str(exc), is_error=True)
                 trace.record(
                     "tool_call",
@@ -156,6 +159,9 @@ class AgentKernel:
                 if result.is_error:
                     trace.record("tool_error", session_id=session.id, turn_id=turn_id, name=call.name, output=result.output)
                     if self.fail_fast_on_tool_error:
+                        final_text = result.output
+                        stop_reason = "tool_error"
+                        abort_turn = True
                         trace.record(
                             "tool_batch_aborted",
                             session_id=session.id,
@@ -166,6 +172,8 @@ class AgentKernel:
                         break
 
             self.store.save(session)
+            if abort_turn:
+                break
 
         self.store.save(session)
         trace.record(

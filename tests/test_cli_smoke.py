@@ -162,15 +162,18 @@ def test_cli_run_can_fail_fast_on_tool_error(tmp_path: Path) -> None:
             "--mock-responses",
             str(script),
         ],
-        check=True,
+        check=False,
         text=True,
         capture_output=True,
         env={**os.environ, "PYTHONPATH": "src"},
     )
 
-    assert "saw failure" in result.stdout
+    assert result.returncode == 2
+    assert "Unknown tool: missing_tool" in result.stdout
     assert not (workspace / "should-not-exist.txt").exists()
-    assert '"tool_batch_aborted"' in (tmp_path / "trace.jsonl").read_text(encoding="utf-8")
+    trace_text = (tmp_path / "trace.jsonl").read_text(encoding="utf-8")
+    assert '"tool_batch_aborted"' in trace_text
+    assert '"stop_reason": "tool_error"' in trace_text
 
 
 def test_cli_run_can_restore_checkpoint_on_failure(tmp_path: Path) -> None:

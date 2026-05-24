@@ -211,7 +211,9 @@ def test_kernel_can_fail_fast_after_tool_error(tmp_path: Path) -> None:
 
     result = kernel.run_turn(Session.new(workspace=str(workspace.root)), "use mixed tools")
 
-    assert result.stop_reason == "final_answer"
+    assert result.stop_reason == "tool_error"
+    assert result.final_text == "Unknown tool: missing_tool"
+    assert len(model.calls) == 1
     assert not (workspace.root / "should-not-exist.txt").exists()
     trace_text = (tmp_path / "trace.jsonl").read_text()
     assert '"tool_batch_aborted"' in trace_text

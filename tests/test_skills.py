@@ -1,4 +1,7 @@
 from pathlib import Path
+import os
+import subprocess
+import sys
 
 from harness.skills import SkillStore
 
@@ -43,3 +46,39 @@ def test_skill_store_gets_and_deletes_skill(tmp_path: Path) -> None:
     assert store.delete("debug-tests")
     assert store.get("debug-tests") is None
     assert not store.delete("debug-tests")
+
+
+def test_skill_store_serializes_concurrent_adds(tmp_path: Path) -> None:
+    script = """
+from harness.skills import SkillStore
+import sys
+
+SkillStore(sys.argv[1]).add(sys.argv[2], sys.argv[3], description=sys.argv[4])
+"""
+
+    processes = [
+        subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                script,
+                str(tmp_path),
+                f"skill-{index}",
+                f"body-{index}",
+                f"description-{index}",
+            ],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "PYTHONPATH": "src"},
+        )
+        for index in range(8)
+    ]
+    for process in processes:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    skills = SkillStore(tmp_path).list()
+
+    assert {skill.name for skill in skills} == {f"skill-{index}" for index in range(8)}
+    assert {skill.body for skill in skills} == {f"body-{index}" for index in range(8)}

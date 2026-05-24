@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from harness.storage import atomic_write_text, file_lock
+
 
 @dataclass(frozen=True)
 class Skill:
@@ -17,29 +19,34 @@ class SkillStore:
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        self.lock_path = self.root / "skills.lock"
 
     def add(self, name: str, body: str, *, description: str = "") -> Path:
         skill_name = _normalize_name(name)
         path = self.root / f"{skill_name}.md"
         text = f"---\ndescription: {description.strip()}\n---\n\n{body.strip()}\n"
-        path.write_text(text, encoding="utf-8")
+        with file_lock(self.lock_path):
+            atomic_write_text(path, text)
         return path
 
     def list(self) -> list[Skill]:
-        return [self._read(path) for path in sorted(self.root.glob("*.md"))]
+        with file_lock(self.lock_path):
+            return [self._read(path) for path in sorted(self.root.glob("*.md"))]
 
     def get(self, name: str) -> Skill | None:
         path = self.root / f"{_normalize_name(name)}.md"
-        if not path.exists():
-            return None
-        return self._read(path)
+        with file_lock(self.lock_path):
+            if not path.exists():
+                return None
+            return self._read(path)
 
     def delete(self, name: str) -> bool:
         path = self.root / f"{_normalize_name(name)}.md"
-        if not path.exists():
-            return False
-        path.unlink()
-        return True
+        with file_lock(self.lock_path):
+            if not path.exists():
+                return False
+            path.unlink()
+            return True
 
     def search(self, query: str, *, limit: int = 5) -> list[Skill]:
         terms = [term for term in re.split(r"\W+", query.lower()) if term]

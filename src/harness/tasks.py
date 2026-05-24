@@ -7,6 +7,8 @@ from pathlib import Path
 from time import time
 from uuid import uuid4
 
+from harness.storage import atomic_write_text
+
 
 class TaskStatus(str, Enum):
     TODO = "todo"
@@ -162,7 +164,7 @@ class TaskStore:
 
     def _write(self, tasks: dict[str, Task]) -> None:
         data = {task_id: task.to_dict() for task_id, task in tasks.items()}
-        self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        atomic_write_text(self.path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
 
 def _status_value(status: TaskStatus | str) -> str:

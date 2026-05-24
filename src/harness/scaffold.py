@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from harness.storage import atomic_write_text
+
 
 @dataclass(frozen=True)
 class ScaffoldResult:
@@ -109,4 +111,4 @@ def scaffold_project(root: str | Path, *, overwrite: bool = False) -> ScaffoldRe
 def _write_json(path: Path, data: object, *, overwrite: bool) -> None:
     if path.exists() and not overwrite:
         return
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    atomic_write_text(path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")

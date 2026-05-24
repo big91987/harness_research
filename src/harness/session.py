@@ -7,6 +7,7 @@ from time import time
 from uuid import uuid4
 
 from harness.schema import Message
+from harness.storage import atomic_write_text
 
 
 @dataclass
@@ -137,7 +138,8 @@ class SessionBundle:
             raise ValueError("session is required")
         target = Path(path).expanduser().resolve()
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(
+        atomic_write_text(
+            target,
             json.dumps(
                 {
                     "version": cls.version,
@@ -148,7 +150,6 @@ class SessionBundle:
                 sort_keys=True,
             )
             + "\n",
-            encoding="utf-8",
         )
         return target
 

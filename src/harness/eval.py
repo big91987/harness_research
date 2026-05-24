@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from harness.cost import canonical_usage
+from harness.storage import atomic_write_text
 from harness.trace import TraceRecorder
 
 
@@ -73,7 +74,7 @@ class EvalSuiteStore:
         return json.loads(self.path.read_text(encoding="utf-8"))
 
     def _write(self, data: dict) -> None:
-        self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        atomic_write_text(self.path, json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
 
 
 def evaluate_trace(path: str | Path, expectation: EvalExpectation) -> EvalReport:

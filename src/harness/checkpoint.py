@@ -8,6 +8,8 @@ from pathlib import Path
 from time import time
 from uuid import uuid4
 
+from harness.storage import atomic_write_text
+
 
 @dataclass(frozen=True)
 class CheckpointFile:
@@ -67,7 +69,7 @@ class WorkspaceCheckpoint:
             "files": {name: file.__dict__ for name, file in files.items()},
         }
         manifest_path = target_root / "manifest.json"
-        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_text(manifest_path, json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))
         return cls(
             id=checkpoint_id,
             label=label,
